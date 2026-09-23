@@ -97,8 +97,7 @@ export async function render(root) {
     const out = [];
     out.push(h('div', { class: 'totals' },
       h('div', null, h('strong', null, s.totals.completed), h('small', null, 'concluídos')),
-      h('div', null, h('strong', null, s.totals.inProgress), h('small', null, 'em andamento')),
-      h('div', null, h('strong', null, s.totals.retro), h('small', null, 'retroativos'))));
+      h('div', null, h('strong', null, s.totals.inProgress), h('small', null, 'em andamento'))));
 
     if (s.bestAlbums.length === 0) {
       out.push(emptyState('Sem dados ainda', 'As estatísticas aparecem quando algum álbum for concluído pelos três.'));

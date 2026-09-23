@@ -425,7 +425,7 @@ textarea.input { min-height: 140px; resize: vertical; }
 .chip { flex: none; border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; min-height: 38px; padding: 0 14px; font-size: 15px; font-weight: 600; cursor: pointer; }
 .chip[aria-pressed='true'] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .chip.except[aria-pressed='true'] { background: var(--danger); border-color: var(--danger); color: #fff; }
-.totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.totals { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 .totals div { background: var(--surface); border-radius: var(--radius-m); padding: 12px; box-shadow: var(--shadow); }
 .totals strong { display: block; font-size: 30px; font-stretch: 75%; font-weight: 800; line-height: 1; }
 .totals small { color: var(--ink-2); font-size: 13px; }
