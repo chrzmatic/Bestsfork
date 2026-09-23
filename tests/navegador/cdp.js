@@ -145,6 +145,8 @@ export function servir(raiz) {
   };
   const servidor = Deno.serve({ port: 0, hostname: '127.0.0.1', onListen: () => {} }, async (req) => {
     let caminho = decodeURIComponent(new URL(req.url).pathname);
+    // Igual ao npx serve: /index.html redireciona para /.
+    if (caminho === '/index.html') return new Response(null, { status: 301, headers: { location: '/' } });
     if (caminho === '/') caminho = '/index.html';
     if (caminho.includes('..')) return new Response('404', { status: 404 });
     try {

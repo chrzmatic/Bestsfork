@@ -142,6 +142,15 @@ async function main() {
 
     // Login e lista vazia
     await rodar(`await until(() => $('input[type=email]'), 20000, 'tela de login');`);
+    // Recarrega com o service worker já no controle, como acontece na segunda visita.
+    await rodar(`await until(() => navigator.serviceWorker.controller, 20000, 'service worker ativo'); return true;`);
+    await cdp.enviar('Page.reload', { ignoreCache: false });
+    await new Promise((r) => setTimeout(r, 1500));
+    const voltou = await rodar(`
+      try { await until(() => $('input[type=email]'), 20000, 'login após recarregar'); } catch { return false; }
+      return !!navigator.serviceWorker.controller;
+    `).catch(() => false);
+    ok('app abre de novo com o service worker no controle', voltou);
     await foto('login', false);
     await rodar(`
       typeIn($('input[type=email]'), '${contas[0].email}');

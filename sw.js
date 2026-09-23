@@ -1,10 +1,9 @@
 // Troque a versão a cada publicação para os aparelhos baixarem os arquivos novos.
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `bestsfork-${VERSION}`;
 
 const FILES = [
   './',
-  'index.html',
   'manifest.webmanifest',
   'css/styles.css',
   'fonts/bricolage-latin.woff2',
@@ -41,8 +40,17 @@ const FILES = [
   'js/views/track-editor.js',
 ];
 
+// Alguns servidores redirecionam (index.html vira ./). O navegador recusa resposta
+// redirecionada numa navegação, então guarda só o conteúdo final.
+async function store(cache, file) {
+  const res = await fetch(file, { cache: 'reload' });
+  if (!res.ok) throw new Error(`Falha ao guardar ${file}`);
+  const clean = res.redirected ? new Response(await res.blob(), { status: 200, headers: res.headers }) : res;
+  await cache.put(file, clean);
+}
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
+  event.waitUntil(caches.open(CACHE).then((c) => Promise.all(FILES.map((f) => store(c, f)))));
 });
 
 self.addEventListener('activate', (event) => {
@@ -65,7 +73,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (req.mode === 'navigate') {
-    event.respondWith(caches.match('index.html', { cacheName: CACHE }).then((hit) => hit || fetch(req)));
+    event.respondWith(caches.match('./', { cacheName: CACHE }).then((hit) => hit || fetch(req)));
     return;
   }
   event.respondWith(
