@@ -1,4 +1,4 @@
-import { h, screenHead, cover, sticker, badge, emptyState, promptDialog, withBusy, toast, icon, confirmDialog } from '../ui.js';
+import { h, screenHead, cover, sticker, badge, emptyState, promptDialog, withBusy, toast, icon, confirmDialog, add } from '../ui.js';
 import * as db from '../db.js';
 import { albumGroupScore } from '../stats.js';
 import { formatScore } from '../scoring.js';
@@ -10,7 +10,7 @@ export async function render(root, [artistId]) {
     db.getArtist(artistId), db.listAlbums(), db.listResults(), db.listAllProgress(),
   ]);
   if (!artist) {
-    root.append(screenHead('Artista', { back: '#/artists' }), emptyState('Artista não encontrado', null));
+    add(root, screenHead('Artista', { back: '#/artists' }), emptyState('Artista não encontrado', null));
     return;
   }
   const members = session.members;
@@ -33,7 +33,7 @@ export async function render(root, [artistId]) {
     },
   }, icon('edit'));
 
-  root.append(
+  add(root,
     screenHead(artist.name, { back: '#/artists', actions }),
     h('p', { class: 'muted', style: 'margin-top: -8px; margin-bottom: 16px' },
       `${mine.length} ${mine.length === 1 ? 'álbum' : 'álbuns'}`,

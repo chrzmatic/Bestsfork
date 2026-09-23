@@ -102,8 +102,21 @@ async function main() {
 
     const rodar = (corpo) => cdp.avaliar(`(async () => { ${PRELUDIO}\n${corpo} })()`);
     let n = 0;
+    // Texto que escapou do código para a tela, como "false" ou "null".
+    const lixo = () => cdp.avaliar(`(() => {
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      const achados = [];
+      while (w.nextNode()) {
+        const t = w.currentNode.textContent.trim();
+        const solto = ['false', 'true', 'null', 'undefined', 'NaN'].some((p) => t.startsWith(p) && t.split(p).join('') === '');
+        if (solto || t.includes('[object ') || t.includes('undefined') || t.includes('NaN')) achados.push(t);
+      }
+      return achados;
+    })()`);
     const foto = async (nome, cheia = true) => {
       await new Promise((r) => setTimeout(r, 400));
+      const sujeira = await lixo();
+      ok(`tela "${nome}" sem texto solto de código`, sujeira.length === 0, sujeira.join(', '));
       const { data } = await cdp.enviar('Page.captureScreenshot', { format: 'png', captureBeyondViewport: cheia });
       await Deno.writeFile(`${pastaFotos}/${String(++n).padStart(2, '0')}-${nome}.png`, Uint8Array.from(atob(data), (c) => c.charCodeAt(0)));
     };

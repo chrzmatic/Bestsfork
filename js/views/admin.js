@@ -1,4 +1,4 @@
-import { h, screenHead, emptyState, sheet, withBusy, toast, confirmDialog, deliverFile } from '../ui.js';
+import { h, screenHead, emptyState, sheet, withBusy, toast, confirmDialog, deliverFile, add } from '../ui.js';
 import * as db from '../db.js';
 import { backupJson, fileName } from '../export.js';
 import { actingAdmin } from '../state.js';
@@ -6,7 +6,7 @@ import { navigate } from '../app.js';
 
 export async function render(root) {
   if (!actingAdmin()) {
-    root.append(screenHead('Admin', { back: '#/profile' }), emptyState('Só no modo admin', 'Ative o modo admin em Perfil.'));
+    add(root, screenHead('Admin', { back: '#/profile' }), emptyState('Só no modo admin', 'Ative o modo admin em Perfil.'));
     return;
   }
   db.invalidate('tags');
@@ -50,7 +50,7 @@ export async function render(root) {
     await deliverFile(fileName('backup'), backupJson(all), 'application/json');
   }));
 
-  root.append(
+  add(root,
     screenHead('Admin', { back: '#/profile' }),
     h('div', { class: 'panel' },
       h('div', { class: 'row', style: 'margin-bottom: 4px' }, h('h2', { class: 'grow' }, 'Tags'),

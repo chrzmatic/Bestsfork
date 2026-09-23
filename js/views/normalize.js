@@ -1,4 +1,4 @@
-import { h, screenHead, emptyState, withBusy, toast, confirmDialog } from '../ui.js';
+import { h, screenHead, emptyState, withBusy, toast, confirmDialog, add, put } from '../ui.js';
 import * as db from '../db.js';
 import { countedTracks, missingTracks, maxFor, formatTenths } from '../scoring.js';
 import { shuffle, rankState, adjustTiers, diffScores } from '../normalize.js';
@@ -9,12 +9,12 @@ export async function render(root, [albumId]) {
   const back = `#/album/${albumId}`;
   const [album, rating] = await Promise.all([db.getAlbum(albumId), db.getRating(albumId, session.uid)]);
   if (!album || !rating || rating.status !== 'draft') {
-    root.append(screenHead('Normalizar notas', { back }),
+    add(root, screenHead('Normalizar notas', { back }),
       emptyState('Nada para normalizar', 'A normalização só fica disponível num rascunho seu.'));
     return;
   }
   if (missingTracks(rating, album.tracks).length > 0) {
-    root.append(screenHead('Normalizar notas', { back }),
+    add(root, screenHead('Normalizar notas', { back }),
       emptyState('Faltam notas', 'Dê nota a todas as faixas que contam antes de normalizar.',
         h('a', { class: 'btn secondary', href: back }, 'Voltar para o álbum')));
     return;
@@ -26,7 +26,7 @@ export async function render(root, [albumId]) {
   const history = [];
   const body = h('div');
 
-  root.append(screenHead('Normalizar notas', { back }), body);
+  add(root, screenHead('Normalizar notas', { back }), body);
   step();
 
   function step() {
@@ -38,7 +38,7 @@ export async function render(root, [albumId]) {
     const trackBtn = (id, answer) => h('button', { class: 'duel-btn', onclick: () => choose(answer) },
       h('small', null, `Faixa ${byId[id].position}`), byId[id].title);
 
-    body.replaceChildren(
+    put(body,
       h('p', { class: 'muted' }, 'Compare as faixas sem pensar nas notas. No fim o app sugere ajustes para as notas combinarem com suas preferências.'),
       h('div', { class: 'progress', style: 'margin-top: 16px', role: 'progressbar', 'aria-valuenow': Math.round(state.progress * 100), 'aria-valuemin': 0, 'aria-valuemax': 100 },
         h('div', { style: `width: ${Math.round(state.progress * 100)}%` })),
@@ -60,7 +60,7 @@ export async function render(root, [albumId]) {
     const current = Object.fromEntries(tracks.map((t) => [t.id, rating.trackScores[t.id]]));
     const { scores, error } = adjustTiers(tiers, current, max);
     if (error) {
-      body.replaceChildren(h('div', { class: 'notice' }, error),
+      put(body, h('div', { class: 'notice' }, error),
         h('div', { class: 'btn-row' },
           h('button', { class: 'btn secondary', onclick: () => { history.pop(); step(); } }, 'Voltar'),
           h('a', { class: 'btn', href: back }, 'Voltar para o álbum')));
@@ -68,7 +68,7 @@ export async function render(root, [albumId]) {
     }
     const changes = diffScores(current, scores, tracks.map((t) => t.id));
     if (changes.length === 0) {
-      body.replaceChildren(emptyState('Tudo certo', 'Suas notas já estão consistentes com suas preferências.',
+      put(body, emptyState('Tudo certo', 'Suas notas já estão consistentes com suas preferências.',
         h('a', { class: 'btn', href: back }, 'Voltar para o álbum')));
       return;
     }
@@ -110,7 +110,7 @@ export async function render(root, [albumId]) {
 
     const allBtn = h('button', { class: 'btn block', onclick: (e) => apply(e.currentTarget, changes.map((c) => c.id)) }, 'Aplicar todas');
     const selBtn = h('button', { class: 'btn block secondary', onclick: (e) => apply(e.currentTarget, [...accepted]) }, 'Aplicar selecionadas');
-    body.replaceChildren(
+    put(body,
       h('p', { class: 'muted' }, `${changes.length === 1 ? 'Uma faixa mudaria' : `${changes.length} faixas mudariam`} para refletir suas escolhas. A nota do álbum não muda.`),
       h('div', { style: 'margin: 12px 0 20px' }, rows),
       h('div', { class: 'stack' },

@@ -1,4 +1,4 @@
-import { h, screenHead, avatar, userName, toast, sheet, withBusy, switchField, confirmDialog } from '../ui.js';
+import { h, screenHead, avatar, userName, toast, sheet, withBusy, switchField, confirmDialog, add, put } from '../ui.js';
 import * as db from '../db.js';
 import { changePassword, logout, authMessage, currentUser } from '../auth.js';
 import { photoToDataUrl } from '../photo.js';
@@ -7,7 +7,7 @@ import { session, getPref, setPref, applyTheme } from '../state.js';
 export async function render(root) {
   const user = session.user;
   const avatarBox = h('div');
-  const drawAvatar = () => avatarBox.replaceChildren(avatar(session.user, 'lg'));
+  const drawAvatar = () => put(avatarBox, avatar(session.user, 'lg'));
   drawAvatar();
 
   const fileInput = h('input', { type: 'file', accept: 'image/*', style: 'display: none' });
@@ -98,7 +98,7 @@ export async function render(root) {
     },
   }, 'Sair');
 
-  root.append(
+  add(root,
     screenHead('Perfil'),
     h('div', { class: 'profile-head' }, avatarBox, h('div', { class: 'btn-row', style: 'justify-content: center' }, photoBtn, removeBtn), fileInput),
     h('div', { class: 'panel' }, nameForm),

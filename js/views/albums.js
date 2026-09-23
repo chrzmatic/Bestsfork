@@ -1,4 +1,4 @@
-import { h, icon, cover, sticker, badge, avatars, screenHead, searchBox, emptyState } from '../ui.js';
+import { h, icon, cover, sticker, badge, avatars, screenHead, searchBox, emptyState, add, put } from '../ui.js';
 import * as db from '../db.js';
 import { albumGroupScore } from '../stats.js';
 import { normalizeKey } from '../artists.js';
@@ -73,13 +73,13 @@ export async function render(root) {
       shown = shown.sort((a, b) => time(b) - time(a));
     }
     if (albums.length === 0) {
-      list.replaceChildren(emptyState('Nenhum álbum ainda',
+      put(list, emptyState('Nenhum álbum ainda',
         session.isAdmin ? 'Adicione o primeiro álbum para o grupo avaliar.' : 'Quando um álbum for adicionado, ele aparece aqui.',
         session.isAdmin && h('a', { class: 'btn', href: '#/album/new' }, 'Novo álbum')));
     } else if (shown.length === 0) {
-      list.replaceChildren(h('p', { class: 'empty' }, 'Nenhum álbum encontrado.'));
+      put(list, h('p', { class: 'empty' }, 'Nenhum álbum encontrado.'));
     } else {
-      list.replaceChildren(...shown.map(item));
+      put(list, ...shown.map(item));
     }
   }
 
@@ -94,7 +94,7 @@ export async function render(root) {
       },
     }, label));
 
-  root.append(
+  add(root,
     screenHead('Álbuns', {
       actions: session.isAdmin && h('a', { class: 'icon-btn', href: '#/album/new', 'aria-label': 'Novo álbum' }, icon('plus')),
     }),

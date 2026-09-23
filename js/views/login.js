@@ -1,4 +1,4 @@
-import { h, toast } from '../ui.js';
+import { h, toast, add } from '../ui.js';
 import { login, resetPassword, authMessage } from '../auth.js';
 
 export function render(root) {
@@ -51,7 +51,7 @@ export function render(root) {
     },
   }, 'Esqueci minha senha');
 
-  root.append(h('div', { class: 'login' },
+  add(root, h('div', { class: 'login' },
     h('div', { class: 'brand' }, h('div', { class: 'sticker' }, 'B'), h('h1', null, 'Bestsfork')),
     form,
     forgot,

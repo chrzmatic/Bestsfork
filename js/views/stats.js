@@ -1,4 +1,4 @@
-import { h, screenHead, cover, avatar, userName, sheet, switchField, withBusy, deliverFile, emptyState } from '../ui.js';
+import { h, screenHead, cover, avatar, userName, sheet, switchField, withBusy, deliverFile, emptyState, add, put } from '../ui.js';
 import * as db from '../db.js';
 import { computeStats, albumEvalYear, DEFAULT_FILTERS } from '../stats.js';
 import { albumsCsv, tracksCsv, fullJson, fileName, exportAlbums } from '../export.js';
@@ -20,7 +20,7 @@ export async function render(root) {
   const content = h('div');
   const filterBox = h('div', { class: 'panel' });
 
-  root.append(
+  add(root,
     screenHead('Estatísticas', {
       actions: h('button', { class: 'btn small secondary', onclick: () => openExport(data) }, 'Exportar'),
     }),
@@ -38,7 +38,7 @@ export async function render(root) {
 
   function drawFilters() {
     const modes = [['all', 'Todas'], ['only', 'Só'], ['except', 'Exceto']];
-    filterBox.replaceChildren(
+    put(filterBox,
       tags.length > 0 && h('div', { class: 'field', style: 'margin-bottom: 10px' },
         h('span', null, 'Tags'),
         h('div', { class: 'segmented', role: 'group', 'aria-label': 'Filtro de tags', style: 'justify-self: start' },
@@ -88,7 +88,7 @@ export async function render(root) {
 
     if (s.bestAlbums.length === 0) {
       out.push(emptyState('Sem dados ainda', 'As estatísticas aparecem quando algum álbum for concluído pelos três.'));
-      content.replaceChildren(...out);
+      put(content, ...out);
       return;
     }
 
@@ -131,7 +131,7 @@ export async function render(root) {
           h('div', { class: 'muted small' }, session.members.map((u) => `${userName(usersById[u])} ${formatScore(x.scores[u])}`).join(', '))),
         h('strong', { title: 'Diferença entre a maior e a menor nota' }, formatScore(x.spread))))), 'Diferença entre a maior e a menor nota pessoal.'));
     }
-    content.replaceChildren(...out);
+    put(content, ...out);
   }
 }
 

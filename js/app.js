@@ -1,5 +1,5 @@
 import { configMissing } from './firebase.js';
-import { h, icon, loading, errorState, toast, friendlyError } from './ui.js';
+import { h, icon, loading, errorState, toast, friendlyError, add, put } from './ui.js';
 import { session, getPref, applyTheme } from './state.js';
 
 const app = document.getElementById('app');
@@ -30,7 +30,7 @@ let cleanup = null;
 let renderToken = 0;
 
 function renderTabs(active) {
-  tabbar.replaceChildren(...TABS.map((t) => h('a', {
+  put(tabbar, ...TABS.map((t) => h('a', {
     href: t.href,
     'aria-current': t.id === active ? 'page' : null,
   }, icon(t.icon), t.label)));
@@ -64,7 +64,7 @@ async function route() {
   cleanup = null;
   document.body.classList.remove('no-tabs');
   renderTabs(match.tab);
-  app.replaceChildren(loading());
+  put(app, loading());
 
   try {
     const mod = await match.load();
@@ -76,12 +76,12 @@ async function route() {
       return;
     }
     cleanup = result;
-    app.replaceChildren(root);
+    put(app, root);
     window.scrollTo(0, 0);
   } catch (err) {
     console.error(err);
     if (token !== renderToken) return;
-    app.replaceChildren(errorState(friendlyError(err), () => route()));
+    put(app, errorState(friendlyError(err), () => route()));
   }
 }
 
@@ -90,8 +90,8 @@ function showStandalone(node) {
   cleanup = null;
   renderToken++;
   document.body.classList.add('no-tabs');
-  tabbar.replaceChildren();
-  app.replaceChildren(node);
+  put(tabbar);
+  put(app, node);
 }
 
 function configScreen() {
@@ -121,7 +121,7 @@ async function start() {
   }
 
   const [{ onAuth, logout }, db] = await Promise.all([import('./auth.js'), import('./db.js')]);
-  app.replaceChildren(loading());
+  put(app, loading());
 
   onAuth(async (fbUser) => {
     session.uid = fbUser?.uid || null;

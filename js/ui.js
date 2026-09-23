@@ -18,6 +18,18 @@ export function h(tag, attrs, ...children) {
   return el;
 }
 
+// Iguais a append e replaceChildren, mas ignoram null e false como h().
+export function add(el, ...children) {
+  append(el, children);
+  return el;
+}
+
+export function put(el, ...children) {
+  el.replaceChildren();
+  append(el, children);
+  return el;
+}
+
 function append(el, children) {
   for (const c of children) {
     if (c == null || c === false) continue;

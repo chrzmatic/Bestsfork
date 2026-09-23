@@ -1,4 +1,4 @@
-import { h, screenHead, searchBox, emptyState } from '../ui.js';
+import { h, screenHead, searchBox, emptyState, add, put } from '../ui.js';
 import * as db from '../db.js';
 import { albumGroupScore } from '../stats.js';
 import { normalizeKey } from '../artists.js';
@@ -22,10 +22,10 @@ export async function render(root) {
     const key = normalizeKey(term);
     const shown = artists.filter((a) => !key || normalizeKey(a.name).includes(key));
     if (shown.length === 0) {
-      list.replaceChildren(h('p', { class: 'empty' }, artists.length ? 'Nenhum artista encontrado.' : 'Os artistas aparecem aqui quando os álbuns forem adicionados.'));
+      put(list, h('p', { class: 'empty' }, artists.length ? 'Nenhum artista encontrado.' : 'Os artistas aparecem aqui quando os álbuns forem adicionados.'));
       return;
     }
-    list.replaceChildren(...shown.map((a) => {
+    put(list, ...shown.map((a) => {
       const s = stats[a.id] || { count: 0, scores: [] };
       const avg = s.scores.length ? s.scores.reduce((x, y) => x + y, 0) / s.scores.length : null;
       return h('li', { class: 'no-cover', style: 'grid-template-columns: 1fr auto' },
@@ -36,7 +36,7 @@ export async function render(root) {
     }));
   }
 
-  root.append(screenHead('Artistas'),
+  add(root, screenHead('Artistas'),
     artists.length > 0 ? searchBox('Buscar artista', (v) => { term = v; draw(); }) : null,
     artists.length === 0 ? emptyState('Nenhum artista ainda', 'Os artistas aparecem aqui quando os álbuns forem adicionados.') : list);
   draw();

@@ -1,4 +1,4 @@
-import { h, cover, screenHead, switchField, loading, toast, confirmDialog, withBusy, userName, emptyState } from '../ui.js';
+import { h, cover, screenHead, switchField, loading, toast, confirmDialog, withBusy, userName, emptyState, add, put } from '../ui.js';
 import * as db from '../db.js';
 import * as mb from '../musicbrainz.js';
 import { normalizeKey } from '../artists.js';
@@ -24,14 +24,14 @@ export function tagsForYear(tags, year) {
 
 export async function render(root) {
   if (!session.isAdmin) {
-    root.append(screenHead('Novo álbum', { back: '#/albums' }), emptyState('Só o admin adiciona álbuns', null));
+    add(root, screenHead('Novo álbum', { back: '#/albums' }), emptyState('Só o admin adiciona álbuns', null));
     return;
   }
   const allowRetro = actingAdmin();
   const body = h('div');
   let retro = false;
 
-  root.append(screenHead('Novo álbum', { back: '#/albums' }), body);
+  add(root, screenHead('Novo álbum', { back: '#/albums' }), body);
   searchStep();
 
   function searchStep(initial = '') {
@@ -43,7 +43,7 @@ export async function render(root) {
       const q = input.value.trim();
       if (!q) { input.focus(); return; }
       submit.disabled = true;
-      results.replaceChildren(loading());
+      put(results, loading());
       try {
         const groups = await mb.searchReleaseGroups(q);
         if (groups.length === 0) {
@@ -51,7 +51,7 @@ export async function render(root) {
           confirmStep({ title: '', artistName: '', artistCredit: '', year: null, tracks: [], manual: true });
           return;
         }
-        results.replaceChildren(h('ul', { class: 'result-list' }, groups.map((g) => h('li', null,
+        put(results, h('ul', { class: 'result-list' }, groups.map((g) => h('li', null,
           h('button', { type: 'button', onclick: () => optionsStep(g, q) },
             cover(g.coverUrl, ''),
             h('div', { style: 'min-width: 0' },
@@ -61,13 +61,13 @@ export async function render(root) {
             ),
           )))));
       } catch (err) {
-        results.replaceChildren(networkError(err, run));
+        put(results, networkError(err, run));
       } finally {
         submit.disabled = false;
       }
     };
 
-    body.replaceChildren(
+    put(body,
       allowRetro && h('div', { class: 'panel' }, switchField('Registro retroativo', retro, (v) => { retro = v; }),
         h('p', { class: 'hint' }, 'Para álbuns avaliados antes do app. Grava só a nota final, sem passar pela avaliação.')),
       h('form', { class: 'row', style: 'margin-bottom: 12px', onsubmit: (e) => { e.preventDefault(); run(); } },
@@ -92,12 +92,12 @@ export async function render(root) {
   }
 
   async function optionsStep(group, query) {
-    body.replaceChildren(h('p', { class: 'muted' }, `Buscando as edições de ${group.title}…`), loading());
+    put(body, h('p', { class: 'muted' }, `Buscando as edições de ${group.title}…`), loading());
     let options;
     try {
       options = await mb.getReleaseOptions(group.id);
     } catch (err) {
-      body.replaceChildren(networkError(err, () => optionsStep(group, query)),
+      put(body, networkError(err, () => optionsStep(group, query)),
         h('button', { class: 'btn ghost', onclick: () => searchStep(query) }, 'Voltar para a busca'));
       return;
     }
@@ -123,7 +123,7 @@ export async function render(root) {
     }
     if (options.length === 1) { pick(options[0]); return; }
 
-    body.replaceChildren(
+    put(body,
       h('div', { class: 'row', style: 'margin-bottom: 16px' },
         h('div', { style: 'width: 72px; flex: none' }, cover(group.coverUrl, '')),
         h('div', { class: 'grow' }, h('h2', null, group.title), h('div', { class: 'muted' }, group.artistCredit))),
@@ -142,7 +142,7 @@ export async function render(root) {
   }
 
   async function confirmStep(data) {
-    body.replaceChildren(loading());
+    put(body, loading());
     const [tags, users] = await Promise.all([db.listTags(), db.usersById()]);
     const state = { tracks: data.tracks.map((t) => ({ ...t })) };
     const selectedTags = new Set();
@@ -171,7 +171,7 @@ export async function render(root) {
     const groupScore = h('input', { class: 'input', inputmode: 'decimal', placeholder: 'Ex.: 7,85' });
     const memberInputs = session.members.map((u) => ({ uid: u, input: h('input', { class: 'input', inputmode: 'decimal', placeholder: 'Opcional' }) }));
     const tagChips = h('div', { class: 'chips', style: 'flex-wrap: wrap' });
-    const drawTags = () => tagChips.replaceChildren(...tags.map((t) => h('button', {
+    const drawTags = () => put(tagChips, ...tags.map((t) => h('button', {
       type: 'button', class: 'chip', 'aria-pressed': String(selectedTags.has(t.id)),
       onclick: () => { if (selectedTags.has(t.id)) selectedTags.delete(t.id); else selectedTags.add(t.id); drawTags(); },
     }, t.name)));
@@ -210,7 +210,7 @@ export async function render(root) {
         h('button', { class: 'btn block ghost', type: 'button', onclick: () => (data.back ? data.back() : searchStep()) }, 'Voltar'),
       ),
     );
-    body.replaceChildren(form);
+    put(body, form);
 
     async function save() {
       error.textContent = '';

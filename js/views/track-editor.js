@@ -1,4 +1,4 @@
-import { h, icon } from '../ui.js';
+import { h, icon, put } from '../ui.js';
 
 export function nextTrackId(tracks, used = []) {
   const nums = [...tracks.map((t) => t.id), ...used]
@@ -31,7 +31,7 @@ export function trackEditor(state, { usedIds = [], onChange = () => {}, locked =
   const draw = () => {
     renumber(state.tracks);
     const multiDisc = new Set(state.tracks.map((t) => t.disc || 1)).size > 1;
-    list.replaceChildren(...state.tracks.map((t, i) => {
+    put(list, ...state.tracks.map((t, i) => {
       const title = h('input', {
         class: 'input', value: t.title, 'aria-label': `Título da faixa ${i + 1}`, disabled: locked,
         oninput: (e) => { t.title = e.target.value; onChange(); },

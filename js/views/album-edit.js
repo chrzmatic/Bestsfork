@@ -1,4 +1,4 @@
-import { h, screenHead, emptyState, confirmDialog, withBusy, toast, userName, cover } from '../ui.js';
+import { h, screenHead, emptyState, confirmDialog, withBusy, toast, userName, cover, add, put } from '../ui.js';
 import * as db from '../db.js';
 import { artistKey, normalizeKey } from '../artists.js';
 import { countedTracks, formatScore } from '../scoring.js';
@@ -10,14 +10,14 @@ import { parseFinal } from './album-new.js';
 export async function render(root, [albumId]) {
   const back = `#/album/${albumId}`;
   if (!actingAdmin()) {
-    root.append(screenHead('Editar álbum', { back }), emptyState('Só no modo admin', 'Ative o modo admin em Perfil para editar álbuns.'));
+    add(root, screenHead('Editar álbum', { back }), emptyState('Só no modo admin', 'Ative o modo admin em Perfil para editar álbuns.'));
     return;
   }
   const [album, progress, tags, users] = await Promise.all([
     db.getAlbum(albumId), db.getProgress(albumId), db.listTags(), db.usersById(),
   ]);
   if (!album) {
-    root.append(screenHead('Editar álbum', { back: '#/albums' }), emptyState('Álbum não encontrado', null));
+    add(root, screenHead('Editar álbum', { back: '#/albums' }), emptyState('Álbum não encontrado', null));
     return;
   }
   const artist = await db.getArtist(album.artistId);
@@ -37,7 +37,7 @@ export async function render(root, [albumId]) {
   const editor = trackEditor(state, { usedIds });
 
   const tagChips = h('div', { class: 'chips', style: 'flex-wrap: wrap' });
-  const drawTags = () => tagChips.replaceChildren(...tags.map((t) => h('button', {
+  const drawTags = () => put(tagChips, ...tags.map((t) => h('button', {
     type: 'button', class: 'chip', 'aria-pressed': String(selectedTags.has(t.id)),
     onclick: () => { if (selectedTags.has(t.id)) selectedTags.delete(t.id); else selectedTags.add(t.id); drawTags(); },
   }, t.name)));
@@ -54,7 +54,7 @@ export async function render(root, [albumId]) {
   const saveBtn = h('button', { class: 'btn block', type: 'submit' }, 'Salvar alterações');
   const deleteBtn = h('button', { class: 'btn block danger', type: 'button', onclick: remove }, 'Apagar álbum');
 
-  root.append(
+  add(root,
     screenHead('Editar álbum', { back }),
     h('form', { onsubmit: (e) => { e.preventDefault(); save(); } },
       h('div', { style: 'width: 120px; margin-bottom: 16px' }, cover(album.coverUrl, '')),

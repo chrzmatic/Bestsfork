@@ -1,7 +1,4 @@
-import {
-  h, icon, cover, sticker, badge, avatar, userName, toast, confirmDialog, sheet,
-  withBusy, formatLength, debounce, emptyState,
-} from '../ui.js';
+import { h, icon, cover, sticker, badge, avatar, userName, toast, confirmDialog, sheet, withBusy, formatLength, debounce, emptyState, add } from '../ui.js';
 import * as db from '../db.js';
 import {
   maxFor, countedTracks, missingTracks, isComplete, trackAverage5, album5, personalFinal,
@@ -47,7 +44,7 @@ function trackTitle(t) {
 export async function render(root, [albumId]) {
   const album = await db.getAlbum(albumId);
   if (!album) {
-    root.append(emptyState('Álbum não encontrado', 'Ele pode ter sido apagado.', h('a', { class: 'btn secondary', href: '#/albums' }, 'Voltar para os álbuns')));
+    add(root, emptyState('Álbum não encontrado', 'Ele pode ter sido apagado.', h('a', { class: 'btn secondary', href: '#/albums' }, 'Voltar para os álbuns')));
     return;
   }
   const members = session.members;
@@ -71,24 +68,24 @@ export async function render(root, [albumId]) {
   const tagById = Object.fromEntries(tags.map((t) => [t.id, t]));
   const cleanups = [];
 
-  root.append(header());
+  add(root, header());
   if (album.retro) {
-    root.append(retroBody());
+    add(root, retroBody());
   } else {
-    root.append(membersRow());
-    if (!mine) root.append(startBody());
-    else if (mine.status === 'draft') root.append(draftBody(mine));
-    else root.append(finalBody());
+    add(root, membersRow());
+    if (!mine) add(root, startBody());
+    else if (mine.status === 'draft') add(root, draftBody(mine));
+    else add(root, finalBody());
   }
-  if (admin) root.append(adminBody());
+  if (admin) add(root, adminBody());
 
   return () => cleanups.forEach((fn) => fn());
 
   function header() {
     const done = members.filter((u) => progress[u] === 'final').length;
     const hero = h('div', { class: 'album-hero' }, cover(album.coverUrl, `Capa de ${album.title}`));
-    if (score != null) hero.append(sticker(score, { big: true }));
-    else if (!album.retro) hero.append(sticker(null, { big: true, pending: `Aguardando ${members.length - done} de ${members.length}` }));
+    if (score != null) add(hero, sticker(score, { big: true }));
+    else if (!album.retro) add(hero, sticker(null, { big: true, pending: `Aguardando ${members.length - done} de ${members.length}` }));
 
     const meta = [];
     if (album.retro) meta.push(badge('Retroativo', 'retro'));
@@ -128,13 +125,13 @@ export async function render(root, [albumId]) {
     const memberScores = result?.memberScores || {};
     const withScore = members.filter((u) => typeof memberScores[u] === 'number');
     if (withScore.length) {
-      box.append(h('div', { class: 'section' }, h('h2', null, 'Notas de cada um')),
+      add(box, h('div', { class: 'section' }, h('h2', null, 'Notas de cada um')),
         h('div', { class: 'result-grid' }, withScore.map((u) => h('div', { class: 'result-cell' },
           avatar(users[u], 'md'), h('strong', null, formatScore(memberScores[u])), h('small', null, userName(users[u]))))));
     }
-    box.append(h('p', { class: 'muted small', style: 'margin-top: 16px' }, 'Registro retroativo. Este álbum foi avaliado antes do app e não passa pelo fluxo de avaliação.'));
+    add(box, h('p', { class: 'muted small', style: 'margin-top: 16px' }, 'Registro retroativo. Este álbum foi avaliado antes do app e não passa pelo fluxo de avaliação.'));
     if (album.tracks?.length) {
-      box.append(h('div', { class: 'section' }, h('h2', null, 'Faixas')),
+      add(box, h('div', { class: 'section' }, h('h2', null, 'Faixas')),
         trackList(album.tracks, (t) => h('li', { class: `track${t.excluded ? ' excluded' : ''}` },
           h('span', { class: 'num' }, t.position), trackTitle(t), h('span'))));
     }
@@ -377,10 +374,10 @@ export async function render(root, [albumId]) {
     );
 
     if (waiting.length) {
-      box.append(h('div', { class: 'notice', style: 'margin-top: 16px' },
+      add(box, h('div', { class: 'notice', style: 'margin-top: 16px' },
         `Aguardando ${waiting.length} de ${members.length}: ${waiting.map((u) => userName(users[u])).join(', ')}. As notas de cada um aparecem aqui quando finalizarem.`));
     } else if (score != null) {
-      box.append(
+      add(box,
         h('div', { class: 'section' }, h('h2', null, 'Resultado')),
         h('div', { class: 'result-grid' },
           members.map((u) => h('div', { class: 'result-cell' }, avatar(users[u], 'md'),
@@ -390,7 +387,7 @@ export async function render(root, [albumId]) {
         ),
       );
     }
-    if (mine.adminEdited) box.append(h('p', { class: 'hint', style: 'margin-top: 12px' }, 'Esta avaliação foi ajustada pelo admin.'));
+    if (mine.adminEdited) add(box, h('p', { class: 'hint', style: 'margin-top: 12px' }, 'Esta avaliação foi ajustada pelo admin.'));
     return box;
   }
 
@@ -418,13 +415,13 @@ export async function render(root, [albumId]) {
             }, 'Reabrir'));
           }
         }
-        box.append(h('div', { class: 'row', style: 'padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap' },
+        add(box, h('div', { class: 'row', style: 'padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap' },
           avatar(users[u], 'md'),
           h('div', { class: 'grow' }, h('div', null, userName(users[u])), h('div', { class: 'small muted' }, status)),
           h('div', { class: 'btn-row' }, actions)));
       }
     }
-    box.append(h('div', { class: 'btn-row', style: 'margin-top: 14px' },
+    add(box, h('div', { class: 'btn-row', style: 'margin-top: 14px' },
       h('a', { class: 'btn secondary', href: `#/album/${album.id}/edit` }, 'Editar álbum'),
     ));
     return box;
