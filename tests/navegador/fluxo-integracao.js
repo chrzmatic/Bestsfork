@@ -679,7 +679,7 @@ async function main() {
       await sleep(800);
     `);
     await foto('admin-cores');
-    ok('mudar a faixa no admin muda a cor (6,50 vira vermelho)', (await corDe('Disco Que Não Existe Qwz')) === 'rgb(229, 72, 77)', await corDe('Disco Que Não Existe Qwz'));
+    ok('mudar a faixa no admin muda a cor (6,5 vira vermelho)', (await corDe('Disco Que Não Existe Qwz')) === 'rgb(229, 72, 77)', await corDe('Disco Que Não Existe Qwz'));
     r = await passo(`
       card('Álbum Antigo').querySelector('a').click();
       await until(() => $('.album-title h1')?.textContent === 'Álbum Antigo', 10000, 'álbum');
@@ -687,7 +687,7 @@ async function main() {
     `);
     ok('adesivo grande da página do álbum segue a faixa', r === 'rgb(70, 179, 107)', r);
     await passo(`await goAdmin(); await click('Voltar ao padrão'); await click('Salvar cores'); await sleep(800);`);
-    ok('voltar ao padrão: 6,50 volta a amarelo', (await corDe('Disco Que Não Existe Qwz')) === 'rgb(255, 210, 63)');
+    ok('voltar ao padrão: 6,5 volta a amarelo', (await corDe('Disco Que Não Existe Qwz')) === 'rgb(255, 210, 63)');
 
     // Ano em linha própria na lista e na página.
     r = await passo(`

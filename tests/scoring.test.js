@@ -122,7 +122,10 @@ test('formatação pt-BR', () => {
   assert.equal(formatTenths(50), '5,0');
   assert.equal(formatTenths(null), '-');
   assert.equal(formatScore(8.456), '8,46');
-  assert.equal(formatScore(8), '8,00');
+  assert.equal(formatScore(8.5), '8,5');
+  assert.equal(formatScore(8.504), '8,5');
+  assert.equal(formatScore(7.67), '7,67');
+  assert.equal(formatScore(8), '8,0');
   assert.equal(formatScore(null), '-');
   assert.equal(formatScore(4.25, 1), '4,3');
 });
