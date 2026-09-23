@@ -1,4 +1,5 @@
-import { h, screenHead, searchBox, emptyState, add, put } from '../ui.js';
+import { h, screenHead, searchBox, emptyState, artistAvatar, add, put } from '../ui.js';
+import { artistImage } from '../images.js';
 import * as db from '../db.js';
 import { albumGroupScore } from '../stats.js';
 import { normalizeKey } from '../artists.js';
@@ -28,7 +29,9 @@ export async function render(root) {
     put(list, ...shown.map((a) => {
       const s = stats[a.id] || { count: 0, scores: [] };
       const avg = s.scores.length ? s.scores.reduce((x, y) => x + y, 0) / s.scores.length : null;
-      return h('li', { class: 'no-cover', style: 'grid-template-columns: 1fr auto' },
+      const img = artistImage(a, { albums, results, memberUids: session.members });
+      return h('li', { class: 'no-cover artist-row' },
+        artistAvatar(img, a.name),
         h('a', { href: `#/artist/${a.id}`, style: 'color: inherit; text-decoration: none; display: block; min-width: 0' },
           h('div', { class: 'ellipsis', style: 'font-weight: 650' }, a.name),
           h('div', { class: 'muted small' }, `${s.count} ${s.count === 1 ? 'álbum' : 'álbuns'}`)),

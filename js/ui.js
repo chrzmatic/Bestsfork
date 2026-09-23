@@ -52,6 +52,10 @@ const ICONS = {
   edit: '<path d="M4 20h4L19 9l-4-4L4 16v4z"/>',
   disc: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3a9 9 0 0 1 9 9" opacity=".5"/>',
   close: '<path d="M6 6l12 12M18 6L6 18"/>',
+  viewList: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+  viewGrid2: '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>',
+  viewGrid3: '<path d="M4 4h4v4H4zM10 4h4v4h-4zM16 4h4v4h-4zM4 10h4v4H4zM10 10h4v4h-4zM16 10h4v4h-4zM4 16h4v4H4zM10 16h4v4h-4zM16 16h4v4h-4z"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/>',
 };
 
 export function icon(name) {
@@ -96,11 +100,33 @@ export function avatars(users) {
   return h('span', { class: 'avatars' }, users.map((u) => avatar(u)));
 }
 
-export function sticker(score, { big = false, pending = null } = {}) {
+export function sticker(score, { big = false, small = false, pending = null } = {}) {
+  const size = big ? ' big' : small ? ' small' : '';
   if (score == null) {
-    return h('div', { class: `sticker pending${big ? ' big' : ''}`, 'aria-label': pending || 'Sem nota' }, pending || '');
+    return h('div', { class: `sticker pending${size}`, 'aria-label': pending || 'Sem nota' }, pending || '');
   }
-  return h('div', { class: `sticker${big ? ' big' : ''}`, 'aria-label': `Nota do grupo ${formatScore(score)}` }, formatScore(score));
+  return h('div', { class: `sticker${size}`, 'aria-label': `Nota do grupo ${formatScore(score)}` }, formatScore(score));
+}
+
+// Foto redonda de artista, com a inicial quando não há imagem.
+export function artistAvatar(url, name, size = 'md') {
+  const el = h('span', { class: `avatar artist ${size}`, title: name, role: 'img', 'aria-label': name });
+  if (url) {
+    const img = h('img', { src: url, alt: '', loading: 'lazy', decoding: 'async' });
+    img.addEventListener('error', () => { img.remove(); el.textContent = (name || '?').trim().charAt(0).toUpperCase(); }, { once: true });
+    el.append(img);
+  } else {
+    el.textContent = (name || '?').trim().charAt(0).toUpperCase();
+  }
+  return el;
+}
+
+// Selos de tags e do retroativo. `hiddenOnCards` deixa o selo discreto na página do álbum.
+export function badgeList(items) {
+  return items.map((b) => h('span', {
+    class: `badge ${b.kind === 'retro' ? 'retro' : ''}${b.hiddenOnCards ? ' faint' : ''}`,
+    title: b.hiddenOnCards ? 'Oculta nos cards' : null,
+  }, b.label));
 }
 
 export function badge(text, kind = '') {

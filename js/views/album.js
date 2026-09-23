@@ -1,10 +1,12 @@
-import { h, icon, cover, sticker, badge, avatar, userName, toast, confirmDialog, sheet, withBusy, formatLength, debounce, emptyState, add } from '../ui.js';
+import { h, icon, cover, sticker, badge, badgeList, avatar, userName, toast, confirmDialog, sheet, withBusy, formatLength, debounce, emptyState, add } from '../ui.js';
 import * as db from '../db.js';
 import {
   maxFor, countedTracks, missingTracks, isComplete, trackAverage5, album5, personalFinal,
   convertScale, conversionLosesPrecision, parseScore, formatTenths, formatScore,
 } from '../scoring.js';
 import { albumGroupScore } from '../stats.js';
+import { pageCover } from '../images.js';
+import { pageBadges, displaySettings, periodWarning, PERIOD_WARNINGS } from '../periods.js';
 import { session, actingAdmin, getPref } from '../state.js';
 import { navigate } from '../app.js';
 
@@ -48,10 +50,13 @@ export async function render(root, [albumId]) {
     return;
   }
   const members = session.members;
-  const [users, progress, artist, tags, mine] = await Promise.all([
+  const [users, progress, artist, tags, mine, genres, displayDoc, media] = await Promise.all([
     db.usersById(), album.retro ? {} : db.getProgress(albumId), db.getArtist(album.artistId), db.listTags(),
     album.retro ? null : db.getRating(albumId, session.uid),
+    db.listGenres().catch(() => []), db.getDisplay().catch(() => ({})),
+    album.customCover ? db.getMedia(`album-${albumId}`).catch(() => null) : null,
   ]);
+  const genre = genres.find((g) => g.id === album.genreId);
   let result = await db.getResult(albumId);
   if (!album.retro && !result && members.length && members.every((u) => progress[u] === 'final')) {
     result = await db.ensureResult(album, progress).catch(() => null);
@@ -83,14 +88,14 @@ export async function render(root, [albumId]) {
 
   function header() {
     const done = members.filter((u) => progress[u] === 'final').length;
-    const hero = h('div', { class: 'album-hero' }, cover(album.coverUrl, `Capa de ${album.title}`));
+    const hero = h('div', { class: 'album-hero' }, cover(pageCover(album, media), `Capa de ${album.title}`));
     if (score != null) add(hero, sticker(score, { big: true }));
     else if (!album.retro) add(hero, sticker(null, { big: true, pending: `Aguardando ${members.length - done} de ${members.length}` }));
 
-    const meta = [];
-    if (album.retro) meta.push(badge('Retroativo', 'retro'));
-    for (const t of album.tags || []) if (tagById[t]) meta.push(badge(tagById[t].name));
+    const meta = badgeList(pageBadges(album, tagById, displaySettings(displayDoc)));
     if (album.retro && album.evaluatedYear) meta.push(badge(`Avaliado em ${album.evaluatedYear}`));
+    const warn = admin && periodWarning(album);
+    if (warn) meta.push(badge(PERIOD_WARNINGS[warn], 'warn'));
 
     return h('div', null,
       h('header', { class: 'screen-head', style: 'margin-bottom: 8px' },
@@ -104,6 +109,7 @@ export async function render(root, [albumId]) {
         h('div', { class: 'artist' },
           h('a', { href: `#/artist/${album.artistId}` }, album.artistCredit || artist?.name || ''),
           album.year ? `, ${album.year}` : ''),
+        genre && h('div', { class: 'genre' }, genre.name),
         meta.length > 0 && h('div', { class: 'meta badges' }, meta),
       ),
     );

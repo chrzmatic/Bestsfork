@@ -4,15 +4,19 @@ import { computeStats, albumEvalYear, DEFAULT_FILTERS } from '../stats.js';
 import { albumsCsv, tracksCsv, fullJson, fileName, exportAlbums } from '../export.js';
 import { formatScore } from '../scoring.js';
 import { session, getPref, setPref } from '../state.js';
+import { listCover } from '../images.js';
+import { OLD_TAG, NEW_TAG, SYSTEM_TAG_DEFAULTS } from '../periods.js';
 
 export async function render(root) {
-  const [albums, artists, results, users, tags] = await Promise.all([
-    db.listAlbums(), db.listArtists(), db.listResults(), db.listUsers(), db.listTags(),
+  const [albums, artists, results, users, tags, genres] = await Promise.all([
+    db.listAlbums(), db.listArtists(), db.listResults(), db.listUsers(), db.listTags(), db.listGenres().catch(() => []),
   ]);
-  const data = { albums, artists, results, users, tags, memberUids: session.members };
+  const data = { albums, artists, results, users, tags, genres, memberUids: session.members };
+  const tagName = (id) => tags.find((t) => t.id === id)?.name || SYSTEM_TAG_DEFAULTS[id].name;
   const usersById = Object.fromEntries(users.map((u) => [u.id, u]));
   const filters = { ...DEFAULT_FILTERS, ...getPref('statsFilters', {}) };
   filters.tagIds = (filters.tagIds || []).filter((id) => tags.some((t) => t.id === id));
+  if (filters.genreId && !genres.some((g) => g.id === filters.genreId)) filters.genreId = null;
 
   const years = [...new Set(albums.map((a) => albumEvalYear(a, results[a.id])).filter((y) => y != null))].sort((a, b) => b - a);
   if (filters.year != null && !years.includes(filters.year)) filters.year = null;
@@ -38,7 +42,18 @@ export async function render(root) {
 
   function drawFilters() {
     const modes = [['all', 'Todas'], ['only', 'Só'], ['except', 'Exceto']];
+    const periods = [['all', 'Todos'], ['new', tagName(NEW_TAG)], ['old', tagName(OLD_TAG)]];
     put(filterBox,
+      h('div', { class: 'segmented period-picker', role: 'group', 'aria-label': 'Período' },
+        periods.map(([id, label]) => h('button', {
+          'aria-pressed': String((filters.period || 'all') === id),
+          onclick: () => { filters.period = id; update(); },
+        }, label))),
+      genres.length > 0 && h('label', { class: 'field', style: 'margin-bottom: 10px' },
+        h('span', null, 'Gênero'),
+        h('select', { class: 'input', onchange: (e) => { filters.genreId = e.target.value || null; update(); } },
+          h('option', { value: '' }, 'Todos os gêneros'),
+          genres.map((g) => h('option', { value: g.id, selected: filters.genreId === g.id }, g.name)))),
       tags.length > 0 && h('div', { class: 'field', style: 'margin-bottom: 10px' },
         h('span', null, 'Tags'),
         h('div', { class: 'segmented', role: 'group', 'aria-label': 'Filtro de tags', style: 'justify-self: start' },
@@ -67,7 +82,7 @@ export async function render(root) {
 
   function albumRow(album, right, sub, main = album.title) {
     return h('li', null,
-      cover(album.coverUrl, ''),
+      cover(listCover(album), ''),
       h('a', { href: `#/album/${album.id}`, style: 'color: inherit; text-decoration: none; min-width: 0' },
         h('div', { class: 'ellipsis', style: 'font-weight: 650' }, main),
         h('div', { class: 'muted small ellipsis' }, sub ?? album.artistCredit)),
@@ -109,6 +124,14 @@ export async function render(root) {
         h('strong', null, formatScore(x.avg))))), 'Mínimo de 2 álbuns concluídos.'));
     }
 
+    if (s.genres?.length) {
+      out.push(...section('Média por gênero', h('ol', { class: 'rank' }, s.genres.map((x) => h('li', { class: 'no-cover' },
+        h('div', { style: 'min-width: 0' },
+          h('div', { class: 'ellipsis', style: 'font-weight: 650' }, x.genre.name),
+          h('div', { class: 'muted small' }, `${x.count} ${x.count === 1 ? 'álbum' : 'álbuns'}`)),
+        h('strong', null, formatScore(x.avg)))))));
+    }
+
     const members = s.members.filter((m) => m.avg != null);
     if (members.length) {
       out.push(...section('Por membro', h('div', { class: 'stack' }, members.map((m) => h('div', { class: 'panel', style: 'margin: 0' },
@@ -120,12 +143,14 @@ export async function render(root) {
           h('div', { class: 'center' }, h('strong', { style: 'font-size: 24px' }, formatScore(m.avg)), h('div', { class: 'small muted' }, 'média'))),
         m.favorite && h('p', { class: 'small', style: 'margin-top: 10px' }, 'Favorito: ',
           h('a', { href: `#/album/${m.favorite.album.id}` }, m.favorite.album.title), ` (${formatScore(m.favorite.score)})`),
+        m.favoriteGenre && h('p', { class: 'small', style: 'margin-top: 4px' },
+          `Gênero favorito: ${m.favoriteGenre.genre.name} (${formatScore(m.favoriteGenre.avg)})`),
       )))));
     }
 
     if (s.divergences.length) {
       out.push(...section('Maiores divergências', h('ol', { class: 'rank' }, s.divergences.map((x) => h('li', null,
-        cover(x.album.coverUrl, ''),
+        cover(listCover(x.album), ''),
         h('a', { href: `#/album/${x.album.id}`, style: 'color: inherit; text-decoration: none; min-width: 0' },
           h('div', { class: 'ellipsis', style: 'font-weight: 650' }, x.album.title),
           h('div', { class: 'muted small' }, session.members.map((u) => `${userName(usersById[u])} ${formatScore(x.scores[u])}`).join(', '))),

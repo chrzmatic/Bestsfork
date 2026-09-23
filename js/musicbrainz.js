@@ -180,3 +180,37 @@ export function groupByTracklist(releases) {
   options.sort((a, b) => (a.isDeluxe - b.isDeluxe) || (a.trackCount - b.trackCount));
   return options;
 }
+
+function genreList(list) {
+  return (list ?? [])
+    .filter((g) => g?.name)
+    .map((g) => ({ name: g.name, count: g.count ?? 0 }));
+}
+
+export async function getReleaseGroupGenres(id) {
+  const data = await request(`release-group/${encodeURIComponent(id)}?inc=genres&fmt=json`);
+  return genreList(data.genres);
+}
+
+export async function getArtistInfo(mbid) {
+  const data = await request(`artist/${encodeURIComponent(mbid)}?inc=genres+url-rels&fmt=json`);
+  const iso = data.country || data.area?.['iso-3166-1-codes']?.[0] || null;
+  const wikidata = (data.relations ?? []).find((r) => r.type === 'wikidata')?.url?.resource ?? '';
+  const match = /\/wiki\/(Q\d+)\b/.exec(wikidata);
+  return {
+    id: data.id ?? mbid,
+    name: data.name ?? '',
+    country: iso ? String(iso).toUpperCase().slice(0, 2) : null,
+    genres: genreList(data.genres),
+    wikidataId: match ? match[1] : null,
+  };
+}
+
+export async function findArtistId(name) {
+  const wanted = normTitle(name);
+  if (!wanted) return null;
+  const q = encodeURIComponent(`artist:"${String(name).trim().replace(/"/g, '')}"`);
+  const data = await request(`artist/?query=${q}&fmt=json&limit=5`);
+  const hit = (data.artists ?? []).find((a) => normTitle(a.name) === wanted);
+  return hit?.id ?? null;
+}

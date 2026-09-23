@@ -6,6 +6,8 @@ import { actingAdmin, session } from '../state.js';
 import { navigate } from '../app.js';
 import { trackEditor } from './track-editor.js';
 import { parseFinal } from './album-new.js';
+import { imageToVariants } from '../photo.js';
+import { pageCover } from '../images.js';
 
 export async function render(root, [albumId]) {
   const back = `#/album/${albumId}`;
@@ -13,14 +15,16 @@ export async function render(root, [albumId]) {
     add(root, screenHead('Editar álbum', { back }), emptyState('Só no modo admin', 'Ative o modo admin em Perfil para editar álbuns.'));
     return;
   }
-  const [album, progress, tags, users] = await Promise.all([
-    db.getAlbum(albumId), db.getProgress(albumId), db.listTags(), db.usersById(),
+  const [album, progress, tags, users, genres] = await Promise.all([
+    db.getAlbum(albumId), db.getProgress(albumId), db.listTags(), db.usersById(), db.listGenres().catch(() => []),
   ]);
   if (!album) {
     add(root, screenHead('Editar álbum', { back: '#/albums' }), emptyState('Álbum não encontrado', null));
     return;
   }
   const artist = await db.getArtist(album.artistId);
+  const media = album.customCover ? await db.getMedia(`album-${albumId}`).catch(() => null) : null;
+  const currentGenre = genres.find((g) => g.id === album.genreId)?.name || '';
   const result = album.retro ? await db.getResult(albumId) : null;
   const hasRatings = Object.keys(progress).length > 0;
   const originalTracks = JSON.stringify(album.tracks || []);
@@ -32,6 +36,36 @@ export async function render(root, [albumId]) {
   const credit = h('input', { class: 'input', value: album.artistCredit || '' });
   const year = h('input', { class: 'input', inputmode: 'numeric', value: album.year ?? '' });
   const coverUrl = h('input', { class: 'input', type: 'url', value: album.coverUrl || '', placeholder: 'https://…' });
+  const genre = h('input', { class: 'input', list: 'genre-options', value: currentGenre, placeholder: 'Sem gênero', autocomplete: 'off' });
+  const genreList = h('datalist', { id: 'genre-options' }, genres.map((g) => h('option', { value: g.name })));
+
+  // Capa: a escolhida pelo admin tem prioridade; dá para voltar para a automática.
+  const coverBox = h('div', { style: 'width: 140px' });
+  const coverFile = h('input', { type: 'file', accept: 'image/*', style: 'display: none' });
+  const coverPick = h('button', { class: 'btn small secondary', type: 'button', onclick: () => coverFile.click() }, 'Escolher da galeria');
+  const coverReset = h('button', { class: 'btn small ghost', type: 'button', hidden: !album.customCover }, 'Voltar para a automática');
+  const paintCover = (url) => put(coverBox, cover(url, ''));
+  paintCover(pageCover(album, media));
+  coverFile.addEventListener('change', async () => {
+    const file = coverFile.files?.[0];
+    coverFile.value = '';
+    if (!file) return;
+    await withBusy(coverPick, async () => {
+      const images = await imageToVariants(file);
+      await db.setAlbumCustomCover(album.id, images);
+      album.customCover = images.thumb;
+      paintCover(images.full);
+      coverReset.hidden = false;
+      toast('Capa trocada');
+    });
+  });
+  coverReset.addEventListener('click', () => withBusy(coverReset, async () => {
+    await db.clearAlbumCustomCover(album.id);
+    album.customCover = null;
+    paintCover(album.coverUrl);
+    coverReset.hidden = true;
+    toast('Capa automática de volta');
+  }));
   const error = h('p', { class: 'error-text', role: 'alert' });
   const usedIds = (album.tracks || []).map((t) => t.id);
   const editor = trackEditor(state, { usedIds });
@@ -57,17 +91,20 @@ export async function render(root, [albumId]) {
   add(root,
     screenHead('Editar álbum', { back }),
     h('form', { onsubmit: (e) => { e.preventDefault(); save(); } },
-      h('div', { style: 'width: 120px; margin-bottom: 16px' }, cover(album.coverUrl, '')),
+      h('div', { class: 'field' }, h('span', null, 'Capa'),
+        h('div', { class: 'row', style: 'align-items: flex-end; flex-wrap: wrap' }, coverBox,
+          h('div', { class: 'stack' }, coverPick, coverReset)), coverFile),
       h('label', { class: 'field' }, h('span', null, 'Título'), title),
       h('label', { class: 'field' }, h('span', null, 'Artista principal'), artistInput,
         h('span', { class: 'hint' }, 'Para corrigir a grafia do artista em todos os álbuns, edite na página do artista.')),
       h('label', { class: 'field' }, h('span', null, 'Crédito completo'), credit),
       h('label', { class: 'field' }, h('span', null, 'Ano de lançamento'), year),
-      h('label', { class: 'field' }, h('span', null, 'Endereço da capa'), coverUrl),
+      h('label', { class: 'field' }, h('span', null, 'Endereço da capa automática'), coverUrl),
+      h('label', { class: 'field' }, h('span', null, 'Gênero'), genre, genreList),
       tags.length > 0 && h('div', { class: 'field' }, h('span', null, 'Tags'), tagChips),
       album.retro && h('div', { class: 'panel' },
         h('h2', null, 'Registro retroativo'),
-        h('label', { class: 'field' }, h('span', null, 'Ano em que foi avaliado'), evalYear),
+        h('label', { class: 'field' }, h('span', null, 'Ano em que foi avaliado (opcional)'), evalYear),
         h('label', { class: 'field' }, h('span', null, 'Nota do grupo (0 a 10)'), groupScore),
         memberInputs.map(({ uid, input }) => h('label', { class: 'field' }, h('span', null, `Nota final de ${userName(users[uid])}`), input)),
       ),
@@ -126,6 +163,7 @@ export async function render(root, [albumId]) {
 
     await withBusy(saveBtn, async () => {
       await db.updateAlbum(album.id, patch);
+      if (genre.value.trim() !== currentGenre) await db.setAlbumGenre(album.id, genre.value.trim() || null);
       if (artistKey(a) !== album.artistId) await db.changeAlbumArtist(album.id, a);
       if (tracksChanged) {
         if (album.retro) await db.updateAlbum(album.id, { tracks });

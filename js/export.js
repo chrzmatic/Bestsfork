@@ -25,7 +25,9 @@ function lookups(data) {
   const artists = new Map((data.artists || []).map((a) => [a.id, a]));
   const tags = new Map((data.tags || []).map((t) => [t.id, t]));
   const users = new Map((data.users || []).map((u) => [u.id, u]));
+  const genres = new Map((data.genres || []).map((g) => [g.id, g]));
   return {
+    genreName: (album) => (album.genreId != null ? genres.get(album.genreId)?.name ?? '' : ''),
     artistName: (album) => artists.get(album.artistId)?.name ?? album.artistCredit ?? '',
     tagNames: (album) => (album.tags || []).map((id) => tags.get(id)?.name).filter(Boolean),
     userName: (uid) => users.get(uid)?.displayName || users.get(uid)?.name || uid,
@@ -42,9 +44,9 @@ function trackScore5(rating, trackId) {
 }
 
 export function albumsCsv(data, opts = {}) {
-  const { artistName, tagNames, userName } = lookups(data);
+  const { artistName, tagNames, genreName, userName } = lookups(data);
   const uids = data.memberUids || [];
-  const rows = [['Título', 'Artista', 'Ano', 'Ano avaliado', 'Tags', 'Nota do grupo', ...uids.map(userName)]];
+  const rows = [['Título', 'Artista', 'Ano', 'Ano avaliado', 'Tags', 'Gênero', 'Nota do grupo', ...uids.map(userName)]];
   for (const album of exportAlbums(data, opts)) {
     const result = data.results[album.id];
     rows.push([
@@ -53,6 +55,7 @@ export function albumsCsv(data, opts = {}) {
       album.year ?? null,
       albumEvalYear(album, result),
       tagNames(album).join('; '),
+      genreName(album),
       albumGroupScore(album, result, uids),
       ...uids.map((u) => (isNum(result.memberScores?.[u]) ? result.memberScores[u] : null)),
     ]);
@@ -97,7 +100,7 @@ function withDates(value) {
 }
 
 export function fullJson(data, opts = {}) {
-  const { artistName, tagNames, userName } = lookups(data);
+  const { artistName, tagNames, genreName, userName } = lookups(data);
   const uids = data.memberUids || [];
   const albums = exportAlbums(data, opts).map((album) => {
     const result = data.results[album.id];
@@ -105,6 +108,7 @@ export function fullJson(data, opts = {}) {
       ...album,
       artistName: artistName(album),
       tagNames: tagNames(album),
+      genreName: genreName(album),
       groupScore: albumGroupScore(album, result, uids),
       result,
     };

@@ -134,3 +134,122 @@ test('top 10 limita a lista', () => {
   assert.equal(s.bestAlbums[0].score, 14);
   assert.equal(s.worstAlbums[0].score, 0);
 });
+
+const TAGS = [{ id: 'old-testamento', name: 'Old Testamento' }, { id: 'new-testamento', name: 'New Testamento' }];
+
+function periodData() {
+  const r = (g) => ({ memberScores: {}, groupScore: g, trackAvgs: {}, retro: true, completedAt: null });
+  return {
+    albums: [
+      { id: 'o', title: 'Old', artistId: 'x', retro: true, tags: ['old-testamento'], genreId: 'pop' },
+      { id: 'n', title: 'New', artistId: 'x', retro: true, tags: ['new-testamento'], genreId: 'rock' },
+      { id: 'b', title: 'Both', artistId: 'x', retro: true, tags: ['old-testamento', 'new-testamento'], genreId: 'pop' },
+      { id: 's', title: 'Sem', artistId: 'x', retro: true, tags: ['minha'] },
+      { id: 'v', title: 'Vazio', artistId: 'x', retro: true },
+    ],
+    results: { o: r(8), n: r(7), b: r(6), s: r(5), v: r(4) },
+    artists: [{ id: 'x', name: 'Xis' }],
+    users: [],
+    memberUids: U,
+    tags: [...TAGS, { id: 'minha', name: 'Minha' }],
+    genres: [{ id: 'pop', name: 'Pop' }, { id: 'rock', name: 'Rock' }],
+  };
+}
+
+const ids = (list) => list.map((a) => a.id).sort();
+
+test('ano de avaliação dos normais é calculado em São Paulo', () => {
+  const album = { id: 'a', retro: false };
+  assert.equal(albumEvalYear(album, { completedAt: new Date('2025-01-01T01:30:00Z') }), 2024);
+  assert.equal(albumEvalYear(album, { completedAt: new Date('2025-01-01T03:30:00Z') }), 2025);
+  assert.equal(albumEvalYear(album, { completedAt: null }), null);
+  assert.equal(albumEvalYear(album, null), null);
+});
+
+test('retroativo sem ano de avaliação', () => {
+  assert.equal(albumEvalYear({ retro: true, evaluatedYear: null }, {}), null);
+  assert.equal(albumEvalYear({ retro: true }, {}), null);
+  const d = periodData();
+  assert.equal(filterAlbums(d, {}).length, 5);
+  assert.equal(filterAlbums(d, { year: 2022 }).length, 0);
+  assert.equal(computeStats(d, { year: 2022 }).totals.retro, 0);
+  assert.equal(computeStats(d).totals.retro, 5);
+});
+
+test('filtro de período pelas tags do sistema', () => {
+  const d = periodData();
+  assert.deepEqual(ids(filterAlbums(d, { period: 'all' })), ['b', 'n', 'o', 's', 'v']);
+  assert.deepEqual(ids(filterAlbums(d, { period: 'old' })), ['b', 'o']);
+  assert.deepEqual(ids(filterAlbums(d, { period: 'new' })), ['n']);
+  assert.equal(computeStats(d, { period: 'old' }).totals.retro, 2);
+});
+
+test('renomear as tags não muda o filtro de período', () => {
+  const d = periodData();
+  d.tags = [{ id: 'old-testamento', name: 'Antigo' }, { id: 'new-testamento', name: 'Novo' }];
+  assert.deepEqual(ids(filterAlbums(d, { period: 'old' })), ['b', 'o']);
+  assert.deepEqual(ids(filterAlbums(d, { period: 'new' })), ['n']);
+});
+
+test('período também vale para os em andamento', () => {
+  const d = periodData();
+  d.albums.push({ id: 'p', title: 'Andando', artistId: 'x', retro: false, tags: ['new-testamento'] });
+  d.albums.push({ id: 'q', title: 'Andando 2', artistId: 'x', retro: false, tags: [] });
+  assert.equal(computeStats(d, { period: 'new' }).totals.inProgress, 1);
+  assert.equal(computeStats(d, { period: 'old' }).totals.inProgress, 0);
+  assert.equal(computeStats(d).totals.inProgress, 2);
+});
+
+test('filtro por gênero', () => {
+  const d = periodData();
+  assert.deepEqual(ids(filterAlbums(d, { genreId: 'pop' })), ['b', 'o']);
+  assert.deepEqual(ids(filterAlbums(d, { genreId: 'rock' })), ['n']);
+  assert.equal(computeStats(d, { genreId: 'pop' }).totals.retro, 2);
+  assert.deepEqual(computeStats(d, { genreId: 'pop' }).bestAlbums.map((x) => x.album.id), ['o', 'b']);
+});
+
+test('média por gênero ignora álbum sem gênero ou com gênero apagado', () => {
+  const d = periodData();
+  d.albums[3].genreId = 'apagado';
+  const s = computeStats(d);
+  assert.deepEqual(s.genres.map((g) => [g.genre.name, g.avg, g.count]), [['Pop', 7, 2], ['Rock', 7, 1]]);
+});
+
+test('gênero favorito de cada membro', () => {
+  const d = sample();
+  d.genres = [{ id: 'pop', name: 'Pop' }, { id: 'rock', name: 'Rock' }];
+  d.albums[0].genreId = 'pop';
+  d.albums[1].genreId = 'rock';
+  d.albums[2].genreId = 'pop';
+  const s = computeStats(d);
+  const [m1, m2] = s.members;
+  assert.equal(m1.favoriteGenre.genre.name, 'Rock');
+  assert.equal(m1.favoriteGenre.avg, 9);
+  assert.equal(m2.favoriteGenre.genre.name, 'Rock');
+  assert.equal(computeStats(sample()).members[0].favoriteGenre, null);
+});
+
+test('gênero favorito desempata pela quantidade', () => {
+  const d = periodData();
+  d.results.o.memberScores = { u1: 8 };
+  d.results.b.memberScores = { u1: 8 };
+  d.results.n.memberScores = { u1: 8 };
+  assert.equal(computeStats(d).members[0].favoriteGenre.genre.name, 'Pop');
+  assert.equal(computeStats(d).members[0].favoriteGenre.count, 2);
+});
+
+test('dados antigos sem gênero não quebram', () => {
+  const s = computeStats(sample());
+  assert.deepEqual(s.genres, []);
+  assert.equal(filterAlbums(sample(), { genreId: null }).length, 4);
+});
+
+test('estatísticas iguais com tags visíveis ou ocultas nos cards', () => {
+  const a = periodData();
+  const b = periodData();
+  a.tags = a.tags.map((t) => ({ ...t, showOnCards: true }));
+  b.tags = b.tags.map((t) => ({ ...t, showOnCards: false }));
+  for (const f of [{}, { period: 'old' }, { period: 'new' }, { tagMode: 'only', tagIds: ['minha'] }]) {
+    assert.deepEqual(computeStats(a, f), computeStats(b, f));
+  }
+});

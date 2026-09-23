@@ -164,3 +164,50 @@ test('resultado retroativo só pelo admin', async () => {
   await assertSucceeds(setDoc(doc(as(A), 'results/al1'), { memberScores: {}, groupScore: 7.5, trackAvgs: {}, retro: true }));
   await assertFails(setDoc(doc(as(B), 'results/al1'), { memberScores: {}, groupScore: 9, trackAvgs: {}, retro: true }));
 });
+
+test('tags de período: admin renomeia e oculta, ninguém apaga', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'tags/old-testamento'), { name: 'Old Testamento', showOnCards: true });
+    await setDoc(doc(db, 'tags/new-testamento'), { name: 'New Testamento', showOnCards: false });
+    await setDoc(doc(db, 'tags/comum'), { name: 'Comum', showOnCards: true });
+  });
+  await assertSucceeds(updateDoc(doc(as(A), 'tags/old-testamento'), { name: 'Antigo' }));
+  await assertSucceeds(updateDoc(doc(as(A), 'tags/new-testamento'), { showOnCards: true }));
+  await assertFails(deleteDoc(doc(as(A), 'tags/old-testamento')));
+  await assertFails(deleteDoc(doc(as(A), 'tags/new-testamento')));
+  await assertSucceeds(deleteDoc(doc(as(A), 'tags/comum')));
+});
+
+test('membro não altera showOnCards nem apaga tags', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'tags/comum'), { name: 'Comum', showOnCards: true });
+  });
+  await assertFails(updateDoc(doc(as(B), 'tags/comum'), { showOnCards: false }));
+  await assertFails(deleteDoc(doc(as(B), 'tags/comum')));
+  await assertSucceeds(getDoc(doc(as(B), 'tags/comum')));
+});
+
+test('config/display: admin altera, membro só lê; members continua travado', async () => {
+  await assertSucceeds(setDoc(doc(as(A), 'config/display'), { showRetroBadge: true }));
+  await assertFails(setDoc(doc(as(B), 'config/display'), { showRetroBadge: false }));
+  await assertSucceeds(getDoc(doc(as(B), 'config/display')));
+  await assertFails(setDoc(doc(as(A), 'config/members'), { uids: [A] }));
+  await assertFails(setDoc(doc(as(A), 'config/outro'), { x: 1 }));
+});
+
+test('gêneros: só admin escreve, membros leem', async () => {
+  await assertSucceeds(setDoc(doc(as(A), 'genres/pop'), { name: 'Pop' }));
+  await assertFails(setDoc(doc(as(B), 'genres/rock'), { name: 'Rock' }));
+  await assertSucceeds(getDoc(doc(as(C), 'genres/pop')));
+  await assertFails(getDoc(doc(env.authenticatedContext('zeca').firestore(), 'genres/pop')));
+  await assertSucceeds(deleteDoc(doc(as(A), 'genres/pop')));
+});
+
+test('imagens: só admin grava, com limite de tamanho', async () => {
+  await assertSucceeds(setDoc(doc(as(A), 'media/album-al1'), { data: 'data:image/jpeg;base64,xx' }));
+  await assertFails(setDoc(doc(as(A), 'media/album-al2'), { data: 'x'.repeat(900001) }));
+  await assertFails(setDoc(doc(as(B), 'media/album-al1'), { data: 'data:image/jpeg;base64,yy' }));
+  await assertSucceeds(getDoc(doc(as(B), 'media/album-al1')));
+  await assertFails(deleteDoc(doc(as(B), 'media/album-al1')));
+});

@@ -1,5 +1,5 @@
 // Troque a versão a cada publicação para os aparelhos baixarem os arquivos novos.
-const VERSION = 'v4';
+const VERSION = 'v5';
 const CACHE = `bestsfork-${VERSION}`;
 
 const FILES = [
@@ -26,6 +26,12 @@ const FILES = [
   'js/stats.js',
   'js/export.js',
   'js/photo.js',
+  'js/periods.js',
+  'js/genres.js',
+  'js/genre-lookup.js',
+  'js/import.js',
+  'js/images.js',
+  'js/artist-images.js',
   'js/views/login.js',
   'js/views/albums.js',
   'js/views/album.js',
@@ -38,6 +44,7 @@ const FILES = [
   'js/views/profile.js',
   'js/views/admin.js',
   'js/views/track-editor.js',
+  'js/views/import.js',
 ];
 
 // Alguns servidores redirecionam (index.html vira ./). O navegador recusa resposta

@@ -24,6 +24,7 @@ const ROUTES = [
   [/^stats$/, 'stats', () => import('./views/stats.js')],
   [/^profile$/, 'profile', () => import('./views/profile.js')],
   [/^admin$/, 'profile', () => import('./views/admin.js')],
+  [/^admin\/import$/, 'profile', () => import('./views/import.js')],
 ];
 
 let cleanup = null;

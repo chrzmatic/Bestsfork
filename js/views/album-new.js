@@ -6,6 +6,8 @@ import { countedTracks } from '../scoring.js';
 import { session, actingAdmin } from '../state.js';
 import { navigate } from '../app.js';
 import { trackEditor, tracksFromLines } from './track-editor.js';
+import { initialTags } from '../periods.js';
+import { autoGenre } from '../genre-lookup.js';
 
 // Nota final de 0 a 10 com até 2 casas, como digitada pelo admin.
 export function parseFinal(text) {
@@ -109,6 +111,7 @@ export async function render(root) {
       artistMbid: group.artists[0]?.id || null,
       artistCredit: group.artistCredit,
       year: group.year,
+      releaseGroupId: group.id,
     };
     const pick = (o) => confirmStep({
       ...base,
@@ -143,15 +146,30 @@ export async function render(root) {
 
   async function confirmStep(data) {
     put(body, loading());
-    const [tags, users] = await Promise.all([db.listTags(), db.usersById()]);
+    const [tags, users, genres] = await Promise.all([db.listTags(), db.usersById(), db.listGenres().catch(() => [])]);
     const state = { tracks: data.tracks.map((t) => ({ ...t })) };
-    const selectedTags = new Set();
+    const selectedTags = new Set(initialTags(retro).filter((id) => tags.some((t) => t.id === id)));
     let autoTags = [];
 
     const title = h('input', { class: 'input', value: data.title || '', required: true });
     const artist = h('input', { class: 'input', value: data.artistName || '', required: true });
     const credit = h('input', { class: 'input', value: data.artistCredit || '', placeholder: 'Igual ao artista' });
     const year = h('input', { class: 'input', inputmode: 'numeric', value: data.year ?? '' });
+    const genreList = h('datalist', { id: 'genre-options' }, genres.map((g) => h('option', { value: g.name })));
+    const genre = h('input', { class: 'input', list: 'genre-options', value: data.genre || '', placeholder: 'Buscando no MusicBrainz…', autocomplete: 'off' });
+    let genreTouched = false;
+    genre.addEventListener('input', () => { genreTouched = true; });
+    // Busca o gênero sem travar o formulário; não sobrescreve o que o admin digitou.
+    const fillGenre = async (query) => {
+      const found = await autoGenre(query);
+      if (!genreTouched && !genre.value) genre.value = found || '';
+      genre.placeholder = 'Ex.: Pop';
+    };
+    if (data.releaseGroupId || data.artistMbid) fillGenre({ releaseGroupId: data.releaseGroupId, artistMbid: data.artistMbid });
+    else genre.placeholder = 'Ex.: Pop';
+    artist.addEventListener('change', () => {
+      if (!genreTouched && !genre.value && artist.value.trim()) fillGenre({ artistName: artist.value.trim() });
+    });
     const error = h('p', { class: 'error-text', role: 'alert' });
     const editor = trackEditor(state);
     const lines = h('textarea', { class: 'input', placeholder: 'Uma faixa por linha' });
@@ -192,10 +210,11 @@ export async function render(root) {
       h('label', { class: 'field' }, h('span', null, 'Artista principal'), artist),
       h('label', { class: 'field' }, h('span', null, 'Crédito completo'), credit),
       h('label', { class: 'field' }, h('span', null, 'Ano de lançamento'), year),
+      h('label', { class: 'field' }, h('span', null, 'Gênero'), genre, genreList),
       tags.length > 0 && h('div', { class: 'field' }, h('span', null, 'Tags'), tagChips),
       retro && h('div', { class: 'panel' },
         h('h2', null, 'Registro retroativo'),
-        h('label', { class: 'field' }, h('span', null, 'Ano em que foi avaliado'), evalYear),
+        h('label', { class: 'field' }, h('span', null, 'Ano em que foi avaliado (opcional)'), evalYear),
         h('label', { class: 'field' }, h('span', null, 'Nota do grupo (0 a 10)'), groupScore),
         memberInputs.map(({ uid, input }) => h('label', { class: 'field' }, h('span', null, `Nota final de ${userName(users[uid])}`), input)),
       ),
@@ -252,7 +271,7 @@ export async function render(root) {
       }
 
       await withBusy(saveBtn, async () => {
-        const id = await db.createAlbum({
+        const { id, artistId } = await db.createAlbum({
           album: {
             title: t,
             artistCredit: credit.value.trim() || a,
@@ -267,7 +286,9 @@ export async function render(root) {
           artistName: a,
           artistMbid: normalizeKey(a) === normalizeKey(data.artistName || '') ? data.artistMbid || null : null,
           result,
+          genreName: genre.value.trim() || null,
         }, session.uid);
+        db.ensureArtistPhoto(artistId).catch(() => {});
         toast(retro ? 'Registro retroativo salvo' : 'Álbum salvo');
         navigate(`#/album/${id}`);
       });

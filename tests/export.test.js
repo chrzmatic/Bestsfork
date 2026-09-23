@@ -62,9 +62,9 @@ test('exportAlbums inclui só álbuns com results e pode excluir retro', () => {
 
 test('CSV de álbuns', () => {
   const rows = lines(albumsCsv(sample()));
-  assert.equal(rows[0], 'Título,Artista,Ano,Ano avaliado,Tags,Nota do grupo,Ana,"Bia, a ""B""",Caio');
-  assert.equal(rows[1], '"Born, This ""Way""",Lady Gaga,2011,2026,New Testamento,8.17,8.5,7,9');
-  assert.equal(rows[2], 'Velho,Xis,2000,2022,Old Testamento,6.25,,,');
+  assert.equal(rows[0], 'Título,Artista,Ano,Ano avaliado,Tags,Gênero,Nota do grupo,Ana,"Bia, a ""B""",Caio');
+  assert.equal(rows[1], '"Born, This ""Way""",Lady Gaga,2011,2026,New Testamento,,8.17,8.5,7,9');
+  assert.equal(rows[2], 'Velho,Xis,2000,2022,Old Testamento,,6.25,,,');
   assert.equal(rows.length, 3);
   assert.equal(lines(albumsCsv(sample(), { includeRetro: false })).length, 2);
 });
@@ -104,4 +104,39 @@ test('nomes de arquivo', () => {
   assert.equal(fileName('faixas', d), 'bestsfork-faixas-2026-09-04.csv');
   assert.equal(fileName('completo', d), 'bestsfork-completo-2026-09-04.json');
   assert.equal(fileName('backup', d), 'bestsfork-backup-2026-09-04.json');
+});
+
+test('CSV de álbuns traz o nome atual do gênero', () => {
+  const d = sample();
+  d.genres = [{ id: 'pop', name: 'Pop' }];
+  d.albums[0].genreId = 'pop';
+  d.albums[1].genreId = 'sumiu';
+  let rows = lines(albumsCsv(d));
+  assert.equal(rows[1], '"Born, This ""Way""",Lady Gaga,2011,2026,New Testamento,Pop,8.17,8.5,7,9');
+  assert.equal(rows[2], 'Velho,Xis,2000,2022,Old Testamento,,6.25,,,');
+  d.genres[0].name = 'Pop Music';
+  rows = lines(albumsCsv(d));
+  assert.ok(rows[1].includes(',Pop Music,'));
+  const json = JSON.parse(fullJson(d));
+  assert.equal(json.albums.find((a) => a.id === 'a1').genreName, 'Pop Music');
+  assert.equal(json.albums.find((a) => a.id === 'a2').genreName, '');
+});
+
+test('retroativo sem ano de avaliação sai com o campo vazio', () => {
+  const d = sample();
+  d.albums[1].evaluatedYear = null;
+  assert.equal(lines(albumsCsv(d))[2], 'Velho,Xis,2000,,Old Testamento,,6.25,,,');
+  delete d.albums[1].evaluatedYear;
+  assert.equal(lines(albumsCsv(d))[2], 'Velho,Xis,2000,,Old Testamento,,6.25,,,');
+});
+
+test('export igual com tags visíveis ou ocultas nos cards', () => {
+  const a = sample();
+  const b = sample();
+  a.tags = a.tags.map((t) => ({ ...t, showOnCards: true }));
+  b.tags = b.tags.map((t) => ({ ...t, showOnCards: false }));
+  assert.equal(albumsCsv(a), albumsCsv(b));
+  assert.equal(tracksCsv(a), tracksCsv(b));
+  const strip = (x) => x.replace(/"exportedAt": "[^"]+"/, '');
+  assert.equal(strip(fullJson(a)), strip(fullJson(b)));
 });

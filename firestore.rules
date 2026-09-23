@@ -15,7 +15,8 @@ service cloud.firestore {
 
     match /config/{doc} {
       allow read: if isMember();
-      allow write: if false;
+      // A lista de membros só muda pelo console. As preferências de exibição, pelo admin.
+      allow write: if doc == 'display' && isAdmin();
     }
 
     match /users/{uid} {
@@ -30,7 +31,22 @@ service cloud.firestore {
 
     match /tags/{tagId} {
       allow read: if isMember();
+      allow create, update: if isAdmin();
+      // As tags de período podem ser renomeadas, mas não apagadas.
+      allow delete: if isAdmin() && !(tagId in ['old-testamento', 'new-testamento']);
+    }
+
+    match /genres/{genreId} {
+      allow read: if isMember();
       allow write: if isAdmin();
+    }
+
+    // Imagens em tamanho cheio escolhidas pelo admin, fora dos documentos que as listas leem.
+    match /media/{mediaId} {
+      allow read: if isMember();
+      allow create, update: if isAdmin() && request.resource.data.data is string &&
+        request.resource.data.data.size() < 900000;
+      allow delete: if isAdmin();
     }
 
     match /artists/{artistId} {
