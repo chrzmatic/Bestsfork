@@ -6,6 +6,8 @@ import {
 } from '../scoring.js';
 import { albumGroupScore } from '../stats.js';
 import { pageCover } from '../images.js';
+import { scoreColors } from '../score-colors.js';
+import { appearance, setAppearance } from '../state.js';
 import { pageBadges, displaySettings, periodWarning, PERIOD_WARNINGS } from '../periods.js';
 import { session, actingAdmin, getPref } from '../state.js';
 import { navigate } from '../app.js';
@@ -57,6 +59,7 @@ export async function render(root, [albumId]) {
     album.customCover ? db.getMedia(`album-${albumId}`).catch(() => null) : null,
   ]);
   const genre = genres.find((g) => g.id === album.genreId);
+  setAppearance(displayDoc);
   let result = await db.getResult(albumId);
   if (!album.retro && !result && members.length && members.every((u) => progress[u] === 'final')) {
     result = await db.ensureResult(album, progress).catch(() => null);
@@ -107,8 +110,8 @@ export async function render(root, [albumId]) {
       h('div', { class: 'album-title' },
         h('h1', null, album.title),
         h('div', { class: 'artist' },
-          h('a', { href: `#/artist/${album.artistId}` }, album.artistCredit || artist?.name || ''),
-          album.year ? `, ${album.year}` : ''),
+          h('a', { href: `#/artist/${album.artistId}` }, album.artistCredit || artist?.name || '')),
+        album.year && h('div', { class: 'year' }, album.year),
         genre && h('div', { class: 'genre' }, genre.name),
         meta.length > 0 && h('div', { class: 'meta badges' }, meta),
       ),
@@ -387,7 +390,7 @@ export async function render(root, [albumId]) {
         h('div', { class: 'result-grid' },
           members.map((u) => h('div', { class: 'result-cell' }, avatar(users[u], 'md'),
             h('strong', null, formatScore(result.memberScores[u])), h('small', null, userName(users[u])))),
-          h('div', { class: 'result-cell', style: 'background: var(--sticker); color: var(--sticker-ink)' },
+          h('div', { class: 'result-cell', style: (() => { const c = scoreColors(score, appearance.scoreBands); return `background: ${c.bg}; color: ${c.ink}`; })() },
             h('small', { style: 'color: inherit' }, 'Grupo'), h('strong', { style: 'font-size: 30px' }, formatScore(score))),
         ),
       );

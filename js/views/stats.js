@@ -14,7 +14,7 @@ export async function render(root) {
   const data = { albums, artists, results, users, tags, genres, memberUids: session.members };
   const tagName = (id) => tags.find((t) => t.id === id)?.name || SYSTEM_TAG_DEFAULTS[id].name;
   const usersById = Object.fromEntries(users.map((u) => [u.id, u]));
-  const filters = { ...DEFAULT_FILTERS, ...getPref('statsFilters', {}) };
+  const filters = { ...DEFAULT_FILTERS, ...getPref('statsFilters', {}), includeRetro: true };
   filters.tagIds = (filters.tagIds || []).filter((id) => tags.some((t) => t.id === id));
   if (filters.genreId && !genres.some((g) => g.id === filters.genreId)) filters.genreId = null;
 
@@ -76,7 +76,6 @@ export async function render(root) {
         h('select', { class: 'input', onchange: (e) => { filters.year = e.target.value ? Number(e.target.value) : null; update(); } },
           h('option', { value: '' }, 'Todos os anos'),
           years.map((y) => h('option', { value: String(y), selected: filters.year === y }, String(y))))),
-      switchField('Incluir retroativos', filters.includeRetro, (v) => { filters.includeRetro = v; update(); }),
     );
   }
 

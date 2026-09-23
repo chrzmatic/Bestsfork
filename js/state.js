@@ -1,3 +1,5 @@
+import { DEFAULT_SCORE_BANDS, normalizeBands } from './score-colors.js';
+
 // Sessão do usuário logado e preferências locais.
 export const session = {
   uid: null,
@@ -6,6 +8,13 @@ export const session = {
   isAdmin: false,
   adminMode: false,
 };
+
+// Configuração de exibição compartilhada (config/display), carregada ao entrar.
+export const appearance = { scoreBands: DEFAULT_SCORE_BANDS };
+
+export function setAppearance(display) {
+  appearance.scoreBands = normalizeBands(display?.scoreBands);
+}
 
 // Admin só age como admin com o modo ligado.
 export function actingAdmin() {

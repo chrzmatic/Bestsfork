@@ -1,11 +1,12 @@
 import {
-  h, screenHead, emptyState, sheet, withBusy, toast, confirmDialog, promptDialog, deliverFile, switchField, badge, add,
+  h, screenHead, emptyState, sheet, withBusy, toast, confirmDialog, promptDialog, deliverFile, switchField, badge, sticker, icon, add, put,
 } from '../ui.js';
+import { DEFAULT_SCORE_BANDS, normalizeBands, bandRanges, scoreColors } from '../score-colors.js';
 import * as db from '../db.js';
 import { backupJson, fileName } from '../export.js';
 import { isSystemTag, tagShownOnCards, displaySettings } from '../periods.js';
 import { genreKey } from '../genres.js';
-import { actingAdmin } from '../state.js';
+import { actingAdmin, setAppearance } from '../state.js';
 import { navigate } from '../app.js';
 
 export async function render(root) {
@@ -82,6 +83,71 @@ export async function render(root) {
     photosState.textContent = total === 0 ? 'Todos os artistas já têm foto.' : `${found} de ${total} artistas ganharam foto.`;
   }));
 
+  // Cores do adesivo da nota por faixa de média.
+  let bands = normalizeBands(displayDoc?.scoreBands);
+  const bandsBox = h('div');
+  const bandsError = h('p', { class: 'error-text' });
+  const parseFrom = (text) => {
+    const v = Number(String(text).trim().replace(',', '.'));
+    return Number.isFinite(v) && v >= 0 && v <= 10 ? Math.round(v * 10) / 10 : null;
+  };
+  const drawBands = () => {
+    const ranges = bandRanges(bands);
+    put(bandsBox, ...bands.map((b, i) => {
+      const from = h('input', {
+        class: 'input', inputmode: 'decimal', value: b.from.toLocaleString('pt-BR', { minimumFractionDigits: 1 }),
+        disabled: i === 0, 'aria-label': `Início da faixa ${i + 1}`,
+        onchange: (e) => {
+          const v = parseFrom(e.target.value);
+          if (v == null || v <= 0) { bandsError.textContent = 'Use um número entre 0,1 e 10.'; return; }
+          bandsError.textContent = '';
+          bands[i] = { ...b, from: v };
+          bands = normalizeBands(bands);
+          drawBands();
+        },
+      });
+      const color = h('input', {
+        type: 'color', class: 'color-input', value: b.color, 'aria-label': `Cor da faixa ${i + 1}`,
+        oninput: (e) => { bands[i] = { ...b, color: e.target.value }; preview.replaceWith(preview = previewRow()); },
+      });
+      return h('div', { class: 'band-row' },
+        h('div', { class: 'band-range' }, h('span', { class: 'small muted' }, 'A partir de'), from),
+        color,
+        h('span', { class: 'small muted' }, ranges[i].label),
+        i > 0 ? h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Remover faixa',
+          onclick: () => { bands.splice(i, 1); bands = normalizeBands(bands); drawBands(); } }, icon('trash')) : h('span'),
+      );
+    }), preview = previewRow());
+  };
+  let preview;
+  // Prévia com as faixas em edição; o app só muda ao salvar.
+  const previewRow = () => h('div', { class: 'band-preview' },
+    bandRanges(bands).map((r) => {
+      const el = sticker((r.from + r.to) / 2, { small: true });
+      const c = scoreColors((r.from + r.to) / 2, bands);
+      el.style.background = c.bg;
+      el.style.color = c.ink;
+      return el;
+    }));
+  drawBands();
+  const addBand = h('button', { class: 'btn small secondary', type: 'button', onclick: () => {
+    const last = bands[bands.length - 1];
+    if (last.from >= 10) return;
+    bands = normalizeBands([...bands, { from: Math.min(10, Math.round((last.from + 1) * 10) / 10), color: '#8d9cff' }]);
+    drawBands();
+  } }, icon('plus'), 'Adicionar faixa');
+  const saveBands = h('button', { class: 'btn small', type: 'button', onclick: () => withBusy(saveBands, async () => {
+    bands = normalizeBands(bands);
+    await db.setDisplay({ scoreBands: bands });
+    setAppearance({ scoreBands: bands });
+    drawBands();
+    toast('Cores das notas salvas');
+  }) }, 'Salvar cores');
+  const resetBands = h('button', { class: 'btn small ghost', type: 'button', onclick: () => {
+    bands = DEFAULT_SCORE_BANDS.map((b) => ({ ...b }));
+    drawBands();
+  } }, 'Voltar ao padrão');
+
   const backupBtn = h('button', { class: 'btn block' }, 'Backup completo');
   backupBtn.addEventListener('click', () => withBusy(backupBtn, async () => {
     const all = await db.fullBackup();
@@ -100,6 +166,12 @@ export async function render(root) {
         toast(on ? 'Selo Retroativo aparece nos cards' : 'Selo Retroativo oculto nos cards');
       })),
       h('p', { class: 'hint' }, 'Vale para os três. Oculto nos cards, continua aparecendo na página do álbum.')),
+    h('div', { class: 'panel' },
+      h('h2', null, 'Cores das notas'),
+      h('p', { class: 'hint', style: 'margin-bottom: 10px' }, 'Cor do adesivo da nota do grupo conforme a média. Vale para os três, em todas as telas.'),
+      bandsBox,
+      bandsError,
+      h('div', { class: 'btn-row', style: 'margin-top: 10px' }, addBand, resetBands, saveBands)),
     h('div', { class: 'panel' },
       h('div', { class: 'row', style: 'margin-bottom: 4px' }, h('h2', { class: 'grow' }, 'Gêneros'),
         h('button', { class: 'btn small', onclick: newGenre }, 'Novo gênero')),

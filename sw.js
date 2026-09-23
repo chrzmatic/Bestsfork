@@ -1,5 +1,5 @@
 // Troque a versão a cada publicação para os aparelhos baixarem os arquivos novos.
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = `bestsfork-${VERSION}`;
 
 const FILES = [
@@ -31,6 +31,8 @@ const FILES = [
   'js/genre-lookup.js',
   'js/import.js',
   'js/images.js',
+  'js/ordering.js',
+  'js/score-colors.js',
   'js/artist-images.js',
   'js/views/login.js',
   'js/views/albums.js',

@@ -1,6 +1,6 @@
 import { configMissing } from './firebase.js';
 import { h, icon, loading, errorState, toast, friendlyError, add, put } from './ui.js';
-import { session, getPref, applyTheme } from './state.js';
+import { session, getPref, applyTheme, setAppearance } from './state.js';
 
 const app = document.getElementById('app');
 const tabbar = document.querySelector('.tabbar');
@@ -145,6 +145,7 @@ async function start() {
       session.isAdmin = user.admin === true;
       session.adminMode = session.isAdmin && getPref('adminMode', false);
       session.members = await db.getMemberUids();
+      setAppearance(await db.getDisplay().catch(() => ({})));
       if (session.isAdmin) db.ensureDefaultTags().catch((err) => console.error(err));
       route();
     } catch (err) {

@@ -1,12 +1,13 @@
-import { h, icon, cover, sticker, badge, badgeList, avatars, screenHead, searchBox, emptyState, add, put } from '../ui.js';
+import { h, icon, cover, sticker, badge, badgeList, avatars, screenHead, searchBox, emptyState, withBusy, toast, add, put } from '../ui.js';
 import * as db from '../db.js';
 import { albumGroupScore } from '../stats.js';
 import { normalizeKey } from '../artists.js';
 import { listCover } from '../images.js';
+import { sortRecent, moveKey } from '../ordering.js';
 import {
   OLD_TAG, NEW_TAG, SYSTEM_TAG_DEFAULTS, matchesPeriod, cardBadges, displaySettings, periodWarning, PERIOD_WARNINGS,
 } from '../periods.js';
-import { session, actingAdmin, getPref, setPref } from '../state.js';
+import { session, actingAdmin, getPref, setPref, setAppearance } from '../state.js';
 
 const VIEWS = [
   { id: 'list', icon: 'viewList', label: 'Lista' },
@@ -23,6 +24,7 @@ export async function render(root) {
   const artistById = Object.fromEntries(artists.map((a) => [a.id, a]));
   const tagById = Object.fromEntries(tags.map((t) => [t.id, t]));
   const display = displaySettings(displayDoc);
+  setAppearance(displayDoc);
   const admin = actingAdmin();
 
   // Autocorreção: todos finalizaram, mas o resultado não foi gravado.
@@ -42,6 +44,8 @@ export async function render(root) {
   if (!['all', 'new', 'old'].includes(period)) period = 'all';
   if (!VIEWS.some((v) => v.id === view)) view = 'list';
   let term = '';
+  let reordering = false;
+  let shownNow = [];
   const list = h('ul');
   const count = h('span', { class: 'muted small' });
 
@@ -80,10 +84,35 @@ export async function render(root) {
         cover(listCover(a), ''),
         h('div', { style: 'min-width: 0' },
           h('h3', null, a.title),
-          h('div', { class: 'artist' }, artistName(a), a.year ? `, ${a.year}` : ''),
+          h('div', { class: 'artist' }, artistName(a)),
+          a.year && h('div', { class: 'year' }, a.year),
           h('div', { class: 'meta' }, statusBadge(a), metaBadges(a), !a.retro && done.length > 0 && avatars(done.map((u) => users[u]))),
         ),
         scoreSticker(a),
+      ),
+    );
+  }
+
+  // Modo de reordenar (admin): setas no lugar do link, gravando a nova posição na hora.
+  function reorderItem(a, i) {
+    const move = (dir) => async (e) => {
+      const key = moveKey(shownNow, i, dir);
+      if (key == null) return;
+      await withBusy(e.currentTarget, async () => {
+        await db.updateAlbum(a.id, { sortKey: key });
+        a.sortKey = key;
+        draw();
+      });
+    };
+    return h('li', { class: 'album-item reorder' },
+      h('div', { class: 'reorder-row' },
+        cover(listCover(a), ''),
+        h('div', { style: 'min-width: 0' },
+          h('h3', null, a.title),
+          h('div', { class: 'artist' }, artistName(a))),
+        h('div', { class: 'reorder-tools' },
+          h('button', { class: 'icon-btn', 'aria-label': `Subir ${a.title}`, disabled: i === 0, onclick: move(-1) }, icon('up')),
+          h('button', { class: 'icon-btn', 'aria-label': `Descer ${a.title}`, disabled: i === shownNow.length - 1, onclick: move(1) }, icon('down'))),
       ),
     );
   }
@@ -113,13 +142,20 @@ export async function render(root) {
     const key = normalizeKey(term);
     let shown = albums.filter((a) => matchesPeriod(a, period) && (!key ||
       normalizeKey(`${a.title} ${a.artistCredit || ''} ${artistById[a.artistId]?.name || ''}`).includes(key)));
-    const time = (a) => a.createdAt?.getTime?.() ?? Date.now();
+    const recent = sortRecent(shown);
     if (sort === 'score') {
+      const rank = new Map(recent.map((a, i) => [a.id, i]));
       const s = (a) => albumGroupScore(a, results[a.id], members) ?? -1;
-      shown = shown.sort((a, b) => s(b) - s(a) || time(b) - time(a));
+      shown = [...shown].sort((a, b) => s(b) - s(a) || rank.get(a.id) - rank.get(b.id));
     } else {
-      shown = shown.sort((a, b) => time(b) - time(a));
+      shown = recent;
     }
+    shownNow = shown;
+    const canReorder = admin && sort === 'recent' && !term;
+    if (!canReorder) reordering = false;
+    reorderBtn.hidden = !canReorder;
+    reorderBtn.textContent = reordering ? 'Concluir' : 'Reordenar';
+    reorderBtn.className = `btn small${reordering ? '' : ' secondary'}`;
     count.textContent = `${shown.length} ${shown.length === 1 ? 'álbum' : 'álbuns'}`;
     list.className = view === 'list' ? 'album-list' : `album-grid ${view}`;
     if (albums.length === 0) {
@@ -128,6 +164,9 @@ export async function render(root) {
         session.isAdmin && h('a', { class: 'btn', href: '#/album/new' }, 'Novo álbum')));
     } else if (shown.length === 0) {
       put(list, h('p', { class: 'empty' }, term ? 'Nenhum álbum encontrado.' : 'Nenhum álbum neste período.'));
+    } else if (reordering) {
+      list.className = 'album-list';
+      put(list, ...shown.map(reorderItem));
     } else if (view === 'list') {
       put(list, ...shown.map(listItem));
     } else {
@@ -153,6 +192,15 @@ export async function render(root) {
     'Período',
   );
   periodPicker.classList.add('period-picker');
+
+  const reorderBtn = h('button', {
+    class: 'btn small secondary', type: 'button', hidden: true,
+    onclick: () => {
+      reordering = !reordering;
+      if (!reordering) toast('Ordem salva');
+      draw();
+    },
+  }, 'Reordenar');
 
   const viewBtn = h('button', { class: 'icon-btn', type: 'button' });
   const paintViewBtn = () => {
@@ -183,6 +231,8 @@ export async function render(root) {
         segmented([['recent', 'Recentes'], ['score', 'Maior nota']], sort, (id) => { sort = id; setPref('albumSort', id); draw(); }, 'Ordenar'),
         viewBtn),
     ),
+    admin && albums.length > 1 && h('div', { class: 'reorder-bar' }, reorderBtn,
+      h('span', { class: 'hint' }, 'Muda a ordem de Recentes para os três.')),
     list,
   );
   draw();

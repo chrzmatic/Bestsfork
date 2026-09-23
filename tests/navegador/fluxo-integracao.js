@@ -660,6 +660,72 @@ async function main() {
       await Deno.remove(csv).catch(() => {});
     }
 
+
+    // Cores das notas por faixa, ordem manual de Recentes, ano em linha própria e estatísticas sem o filtro de retroativos.
+    const corDe = (titulo) => passo(`
+      await goAlbums('all');
+      const s = card(${JSON.stringify(titulo)})?.querySelector('.sticker:not(.pending)');
+      return s ? getComputedStyle(s).backgroundColor : null;
+    `);
+    ok('7,67 fica amarelo (6,5 a 7,9)', (await corDe('Disco de Teste')) === 'rgb(255, 210, 63)', await corDe('Disco de Teste'));
+    ok('8,25 fica verde (8,0 a 10)', (await corDe('Álbum Antigo')) === 'rgb(70, 179, 107)', await corDe('Álbum Antigo'));
+    await foto('albuns-cores', false);
+    await passo(`
+      await goAdmin();
+      const inputs = $$('.band-row .band-range input');
+      inputs[1].value = '7,0'; inputs[1].dispatchEvent(new Event('change', { bubbles: true }));
+      await sleep(100);
+      await click('Salvar cores');
+      await sleep(800);
+    `);
+    await foto('admin-cores');
+    ok('mudar a faixa no admin muda a cor (6,50 vira vermelho)', (await corDe('Disco Que Não Existe Qwz')) === 'rgb(229, 72, 77)', await corDe('Disco Que Não Existe Qwz'));
+    r = await passo(`
+      card('Álbum Antigo').querySelector('a').click();
+      await until(() => $('.album-title h1')?.textContent === 'Álbum Antigo', 10000, 'álbum');
+      return getComputedStyle($('.album-hero .sticker.big')).backgroundColor;
+    `);
+    ok('adesivo grande da página do álbum segue a faixa', r === 'rgb(70, 179, 107)', r);
+    await passo(`await goAdmin(); await click('Voltar ao padrão'); await click('Salvar cores'); await sleep(800);`);
+    ok('voltar ao padrão: 6,50 volta a amarelo', (await corDe('Disco Que Não Existe Qwz')) === 'rgb(255, 210, 63)');
+
+    // Ano em linha própria na lista e na página.
+    r = await passo(`
+      await goAlbums('all');
+      const c = card('Disco de Teste');
+      return { artist: c.querySelector('.artist').textContent, year: c.querySelector('.year')?.textContent };
+    `);
+    ok('ano embaixo do artista na lista', r.artist === 'Beyoncé' && r.year === '2016', JSON.stringify(r));
+
+    // Reordenar Recentes e conferir que a ordem fica depois de recarregar.
+    r = await passo(`
+      await goAlbums('all');
+      $$('.segmented button').find((b) => b.textContent === 'Recentes').click();
+      await sleep(200);
+      const antes = titles();
+      await click('Reordenar');
+      await until(() => $('.reorder-row'), 5000, 'modo reordenar');
+      $$('.reorder-row')[0].querySelector('[aria-label^="Descer"]').click();
+      await until(() => $$('.reorder-row h3')[1]?.textContent === antes[0], 10000, 'desceu');
+      await click('Concluir');
+      await sleep(300);
+      return { antes, depois: titles() };
+    `);
+    ok('descer o primeiro troca com o segundo', r.depois[0] === r.antes[1] && r.depois[1] === r.antes[0], JSON.stringify(r));
+    const ordemEsperada = r.depois;
+    await cdp.enviar('Page.reload');
+    await new Promise((res) => setTimeout(res, 1500));
+    r = await passo(`await until(() => h1() === 'Álbuns' && $('.album-item h3'), 20000, 'álbuns'); await sleep(300); return titles();`);
+    ok('ordem manual continua depois de recarregar', JSON.stringify(r.slice(0, 2)) === JSON.stringify(ordemEsperada.slice(0, 2)), JSON.stringify(r));
+
+    // Estatísticas sempre com retroativos.
+    r = await passo(`
+      location.hash = '#/stats';
+      await until(() => h1() === 'Estatísticas' && $('.totals'), 10000, 'stats');
+      return [...document.querySelectorAll('.panel .switch')].map((l) => l.textContent);
+    `);
+    ok('estatísticas sem o interruptor de retroativos', !r.some((t) => t.includes('retroativos')), JSON.stringify(r));
+
     const errosReais = erros.filter((e) => !/favicon|ERR_INTERNET|coverartarchive|musicbrainz/i.test(e));
     ok('sem erros no console', errosReais.length === 0, errosReais.slice(0, 5).join(' | '));
   } catch (err) {

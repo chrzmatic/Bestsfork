@@ -1,4 +1,6 @@
 import { formatScore } from './scoring.js';
+import { scoreColors } from './score-colors.js';
+import { appearance } from './state.js';
 
 // Construtor de elementos: h('div', { class: 'x', onclick }, filhos...)
 export function h(tag, attrs, ...children) {
@@ -105,7 +107,12 @@ export function sticker(score, { big = false, small = false, pending = null } = 
   if (score == null) {
     return h('div', { class: `sticker pending${size}`, 'aria-label': pending || 'Sem nota' }, pending || '');
   }
-  return h('div', { class: `sticker${size}`, 'aria-label': `Nota do grupo ${formatScore(score)}` }, formatScore(score));
+  const colors = scoreColors(score, appearance.scoreBands);
+  return h('div', {
+    class: `sticker${size}`,
+    style: colors ? `background: ${colors.bg}; color: ${colors.ink}` : null,
+    'aria-label': `Nota do grupo ${formatScore(score)}`,
+  }, formatScore(score));
 }
 
 // Foto redonda de artista, com a inicial quando não há imagem.
