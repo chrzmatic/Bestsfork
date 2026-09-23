@@ -38,10 +38,9 @@ export function inkFor(hex) {
   return lum > 0.35 ? '#1b1e2b' : '#ffffff';
 }
 
-// A cor segue a nota como aparece na tela (uma casa), para 6,46 exibido como 6,5 não ficar na faixa de baixo.
 export function scoreColors(score, bands) {
   if (score == null || !Number.isFinite(score)) return null;
-  const { color } = bandFor(Number(score.toFixed(1)), bands);
+  const { color } = bandFor(score, bands);
   return { bg: color, ink: inkFor(color) };
 }
 
