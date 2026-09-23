@@ -32,6 +32,12 @@ test('texto do adesivo contrasta com a cor', () => {
   assert.equal(scoreColors(null, DEFAULT_SCORE_BANDS), null);
 });
 
+test('a cor segue a nota arredondada que aparece na tela', () => {
+  assert.equal(scoreColors(6.46, DEFAULT_SCORE_BANDS).bg, '#ffd23f');
+  assert.equal(scoreColors(6.44, DEFAULT_SCORE_BANDS).bg, '#e5484d');
+  assert.equal(scoreColors(7.96, DEFAULT_SCORE_BANDS).bg, '#46b36b');
+});
+
 test('faixas descritas para a tela de admin', () => {
   assert.deepEqual(bandRanges(DEFAULT_SCORE_BANDS).map((b) => b.label), ['0,0 a 6,4', '6,5 a 7,9', '8,0 a 10,0']);
 });
