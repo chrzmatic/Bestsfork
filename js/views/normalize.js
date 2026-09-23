@@ -76,22 +76,15 @@ export async function render(root, [albumId]) {
     const accepted = new Set(changes.map((c) => c.id));
     const rows = changes.map((c) => {
       const t = byId[c.id];
-      const toggle = h('button', { class: 'btn small', onclick: () => {
-        if (accepted.has(c.id)) accepted.delete(c.id); else accepted.add(c.id);
-        paint();
-      } });
-      const paint = () => {
-        const on = accepted.has(c.id);
-        toggle.textContent = on ? 'Aplicar' : 'Ignorar';
-        toggle.className = `btn small${on ? '' : ' secondary'}`;
-        toggle.setAttribute('aria-pressed', String(on));
-      };
-      paint();
-      return h('div', { class: 'change-row' },
+      const box = h('input', {
+        type: 'checkbox', class: 'check', checked: true,
+        onchange: (e) => { if (e.target.checked) accepted.add(c.id); else accepted.delete(c.id); },
+      });
+      return h('label', { class: 'change-row' },
         h('div', null,
           h('div', null, `Faixa ${t.position}: ${t.title}`),
           h('div', { class: 'delta' }, `${formatTenths(c.from)} → ${formatTenths(c.to)}`)),
-        toggle);
+        box);
     });
 
     const apply = async (btn, ids) => {

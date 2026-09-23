@@ -71,14 +71,13 @@ export async function render(root, [albumId]) {
         h('label', { class: 'field' }, h('span', null, 'Nota do grupo (0 a 10)'), groupScore),
         memberInputs.map(({ uid, input }) => h('label', { class: 'field' }, h('span', null, `Nota final de ${userName(users[uid])}`), input)),
       ),
-      h('div', { class: 'section' }, h('h2', null, 'Faixas')),
+      h('div', { class: 'section' }, h('h2', null, 'Faixas'), h('p', { class: 'hint' }, 'Marque as faixas que não contam na avaliação, como intros e interlúdios.')),
       hasRatings && h('div', { class: 'notice' }, 'Este álbum já tem avaliações. Mudar a tracklist afeta as notas: faixas removidas saem da média, e uma faixa que passar a contar fica sem nota nos rascunhos. As avaliações finalizadas e o resultado são recalculados.'),
       editor.el,
       error,
       h('div', { class: 'stack', style: 'margin-top: 24px' }, saveBtn, h('a', { class: 'btn block ghost', href: back }, 'Cancelar')),
     ),
-    h('div', { class: 'section' }, h('h2', null, 'Zona de perigo')),
-    deleteBtn,
+    h('div', { style: 'margin-top: 40px' }, deleteBtn),
   );
 
   async function save() {

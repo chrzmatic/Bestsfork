@@ -1,5 +1,5 @@
 // Troque a versão a cada publicação para os aparelhos baixarem os arquivos novos.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = `bestsfork-${VERSION}`;
 
 const FILES = [

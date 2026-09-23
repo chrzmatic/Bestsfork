@@ -37,8 +37,9 @@ export function trackEditor(state, { usedIds = [], onChange = () => {}, locked =
         oninput: (e) => { t.title = e.target.value; onChange(); },
       });
       const excluded = h('input', {
-        type: 'checkbox', role: 'switch', checked: !!t.excluded,
-        onchange: (e) => { t.excluded = e.target.checked; onChange(); },
+        type: 'checkbox', class: 'check', checked: !!t.excluded,
+        title: 'Não conta na avaliação', 'aria-label': `${t.title || 'Faixa'} não conta na avaliação`,
+        onchange: (e) => { t.excluded = e.target.checked; row.classList.toggle('is-excluded', t.excluded); onChange(); },
       });
       const move = (dir) => {
         const j = i + dir;
@@ -49,11 +50,12 @@ export function trackEditor(state, { usedIds = [], onChange = () => {}, locked =
         }
         draw(); onChange();
       };
-      return h('div', { class: 'edit-track' },
+      const row = h('div', { class: `edit-track${t.excluded ? ' is-excluded' : ''}` },
         h('div', { class: 'row' },
           h('span', { class: 'muted small', style: 'width: 34px; text-align: right; flex: none' }, multiDisc ? `${t.disc}.${t.position}` : t.position),
           title),
         h('div', { class: 'tools' },
+          excluded,
           !locked && h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Subir', disabled: i === 0, onclick: () => move(-1) }, icon('up')),
           !locked && h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Descer', disabled: i === state.tracks.length - 1, onclick: () => move(1) }, icon('down')),
           !locked && h('button', {
@@ -61,8 +63,8 @@ export function trackEditor(state, { usedIds = [], onChange = () => {}, locked =
             onclick: () => { removed.push(t.id); state.tracks.splice(i, 1); draw(); onChange(); },
           }, icon('trash')),
         ),
-        h('label', { class: 'switch' }, h('span', null, 'Não conta na avaliação'), excluded),
       );
+      return row;
     }));
   };
 

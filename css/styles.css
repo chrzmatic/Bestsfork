@@ -293,9 +293,9 @@ textarea.input { min-height: 140px; resize: vertical; }
 .list-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 
 /* Página do álbum */
-.album-hero { position: relative; margin: 0 0 22px; }
-.album-hero .cover { width: min(78%, 320px); border-radius: 8px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.55); }
-.album-hero .sticker.big { position: absolute; right: 0; bottom: -10px; }
+.album-hero { position: relative; margin: 0 0 22px; width: min(78%, 320px); }
+.album-hero .cover { width: 100%; border-radius: 8px; box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.55); }
+.album-hero .sticker.big { position: absolute; right: -28px; bottom: -14px; }
 .album-title { margin-top: 18px; }
 .album-title h1 { font-size: 32px; }
 .album-title .artist { font-size: 19px; color: var(--ink-2); margin-top: 4px; }
@@ -376,7 +376,7 @@ textarea.input { min-height: 140px; resize: vertical; }
 .duel .tie { min-height: 50px; }
 .progress { height: 8px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
 .progress > div { height: 100%; background: var(--accent); transition: width 0.2s; }
-.change-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.change-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
 .change-row .delta { font-weight: 700; font-size: 18px; }
 
 /* Stats */
@@ -406,10 +406,8 @@ textarea.input { min-height: 140px; resize: vertical; }
 .edit-track .input { min-height: 44px; }
 .edit-track .tools { display: flex; gap: 6px; align-items: center; }
 .edit-track .icon-btn { width: 38px; height: 38px; }
-.edit-track .switch { grid-column: 1 / -1; min-height: 36px; font-size: 14px; color: var(--ink-2); }
-.edit-track .switch input { width: 42px; height: 26px; }
-.edit-track .switch input::after { width: 20px; height: 20px; }
-.edit-track .switch input:checked::after { transform: translateX(16px); }
+.edit-track.is-excluded .input { color: var(--ink-3); }
+.check { width: 24px; height: 24px; margin: 0 6px; accent-color: var(--accent); cursor: pointer; flex: none; }
 
 .result-list { list-style: none; margin: 0; padding: 0; }
 .result-list button {

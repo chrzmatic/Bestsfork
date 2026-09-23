@@ -129,7 +129,6 @@ export async function render(root, [albumId]) {
         h('div', { class: 'result-grid' }, withScore.map((u) => h('div', { class: 'result-cell' },
           avatar(users[u], 'md'), h('strong', null, formatScore(memberScores[u])), h('small', null, userName(users[u]))))));
     }
-    add(box, h('p', { class: 'muted small', style: 'margin-top: 16px' }, 'Registro retroativo. Este álbum foi avaliado antes do app e não passa pelo fluxo de avaliação.'));
     if (album.tracks?.length) {
       add(box, h('div', { class: 'section' }, h('h2', null, 'Faixas')),
         trackList(album.tracks, (t) => h('li', { class: `track${t.excluded ? ' excluded' : ''}` },
@@ -375,7 +374,7 @@ export async function render(root, [albumId]) {
 
     if (waiting.length) {
       add(box, h('div', { class: 'notice', style: 'margin-top: 16px' },
-        `Aguardando ${waiting.length} de ${members.length}: ${waiting.map((u) => userName(users[u])).join(', ')}. As notas de cada um aparecem aqui quando finalizarem.`));
+        `Aguardando ${waiting.length} de ${members.length}: ${waiting.map((u) => userName(users[u])).join(', ')}.`));
     } else if (score != null) {
       add(box,
         h('div', { class: 'section' }, h('h2', null, 'Resultado')),
