@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function isMember() {
+      return request.auth != null &&
+        exists(/databases/$(db)/documents/users/$(request.auth.uid));
+    }
+    function isAdmin() {
+      return isMember() &&
+        get(/databases/$(db)/documents/users/$(request.auth.uid)).data.admin == true;
+    }
+    function members() {
+      return get(/databases/$(db)/documents/config/members).data.uids;
+    }
+
+    match /config/{doc} {
+      allow read: if isMember();
+      allow write: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if isMember();
+      allow update: if request.auth != null && request.auth.uid == uid &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['displayName', 'photo', 'updatedAt']) &&
+        (request.resource.data.get('photo', null) == null ||
+          request.resource.data.photo.size() < 280000);
+      allow create, delete: if false;
+    }
+
+    match /tags/{tagId} {
+      allow read: if isMember();
+      allow write: if isAdmin();
+    }
+
+    match /artists/{artistId} {
+      allow read: if isMember();
+      allow write: if isAdmin();
+    }
+
+    match /albums/{albumId} {
+      function iFinalized() {
+        let p = /databases/$(db)/documents/albums/$(albumId)/ratings/$(request.auth.uid);
+        return exists(p) && get(p).data.status == 'final';
+      }
+
+      allow read: if isMember();
+      allow write: if isAdmin();
+
+      match /ratings/{uid} {
+        allow read: if isMember() &&
+          (request.auth.uid == uid || iFinalized() || isAdmin());
+        allow create: if isMember() && request.auth.uid == uid &&
+          request.resource.data.status == 'draft';
+        allow update: if isAdmin() ||
+          (request.auth.uid == uid && resource.data.status == 'draft');
+        allow delete: if isAdmin();
+      }
+
+      match /progress/{uid} {
+        allow read: if isMember();
+        allow create: if isMember() && request.auth.uid == uid;
+        allow update: if isAdmin() ||
+          (request.auth.uid == uid && resource.data.status == 'draft');
+        allow delete: if isAdmin();
+      }
+    }
+
+    // Consultas de grupo de coleções (lista de álbuns e backup).
+    match /{path=**}/progress/{uid} {
+      allow read: if isMember();
+    }
+
+    match /results/{albumId} {
+      function ratingAfter(u) {
+        return getAfter(/databases/$(db)/documents/albums/$(albumId)/ratings/$(u)).data;
+      }
+      function memberOk(u) {
+        return ratingAfter(u).status == 'final' &&
+          request.resource.data.memberScores[u] == ratingAfter(u).personalFinal;
+      }
+
+      allow read: if isMember();
+      allow create, update: if isAdmin() || (isMember() &&
+        request.resource.data.retro == false &&
+        memberOk(members()[0]) && memberOk(members()[1]) && memberOk(members()[2]));
+      allow delete: if isAdmin();
+    }
+  }
+}

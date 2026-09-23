@@ -1,0 +1,17 @@
+{
+  "name": "bestsfork",
+  "private": true,
+  "type": "module",
+  "description": "Ferramentas de teste do Bestsfork. O site não tem etapa de build.",
+  "scripts": {
+    "test": "node --test",
+    "serve": "npx --yes serve .",
+    "test:rules": "node tools/com-emulador.mjs firestore \"node --test tests/rules/firestore-rules.js\"",
+    "test:navegador": "node tools/com-emulador.mjs auth,firestore \"deno run -A tests/navegador/fluxo-integracao.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0",
+    "firebase-tools": "15.30.2"
+  }
+}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Bestsfork</title>
+  <meta name="description" content="Avaliação de álbuns entre amigos">
+  <meta name="theme-color" content="#eef0f5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Bestsfork">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="preload" href="fonts/bricolage-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    try {
+      var t = JSON.parse(localStorage.getItem('bestsfork:theme'));
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+</head>
+<body class="no-tabs">
+  <main id="app" tabindex="-1"></main>
+  <nav class="tabbar" aria-label="Navegação principal"></nav>
+  <noscript>O Bestsfork precisa de JavaScript ativado.</noscript>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
