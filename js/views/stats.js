@@ -5,14 +5,12 @@ import { albumsCsv, tracksCsv, fullJson, fileName, exportAlbums } from '../expor
 import { formatScore } from '../scoring.js';
 import { session, getPref, setPref } from '../state.js';
 import { listCover } from '../images.js';
-import { OLD_TAG, NEW_TAG, SYSTEM_TAG_DEFAULTS } from '../periods.js';
 
 export async function render(root) {
   const [albums, artists, results, users, tags, genres] = await Promise.all([
     db.listAlbums(), db.listArtists(), db.listResults(), db.listUsers(), db.listTags(), db.listGenres().catch(() => []),
   ]);
   const data = { albums, artists, results, users, tags, genres, memberUids: session.members };
-  const tagName = (id) => tags.find((t) => t.id === id)?.name || SYSTEM_TAG_DEFAULTS[id].name;
   const usersById = Object.fromEntries(users.map((u) => [u.id, u]));
   const filters = { ...DEFAULT_FILTERS, ...getPref('statsFilters', {}), includeRetro: true };
   filters.tagIds = (filters.tagIds || []).filter((id) => tags.some((t) => t.id === id));
@@ -42,7 +40,7 @@ export async function render(root) {
 
   function drawFilters() {
     const modes = [['all', 'Todas'], ['only', 'Só'], ['except', 'Exceto']];
-    const periods = [['all', 'Todos'], ['new', tagName(NEW_TAG)], ['old', tagName(OLD_TAG)]];
+    const periods = [['all', 'Todos'], ['new', 'New'], ['old', 'Old']];
     put(filterBox,
       h('div', { class: 'segmented period-picker', role: 'group', 'aria-label': 'Período' },
         periods.map(([id, label]) => h('button', {
@@ -96,7 +94,7 @@ export async function render(root) {
     const s = computeStats(data, filters);
     const out = [];
     out.push(h('div', { class: 'totals' },
-      h('div', null, h('strong', null, s.totals.completed), h('small', null, 'concluídos')),
+      h('div', null, h('strong', null, s.totals.completed + s.totals.retro), h('small', null, 'concluídos')),
       h('div', null, h('strong', null, s.totals.inProgress), h('small', null, 'em andamento'))));
 
     if (s.bestAlbums.length === 0) {

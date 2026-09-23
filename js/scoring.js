@@ -116,8 +116,8 @@ export function formatTenths(tenths) {
   return oneDecimal.format(tenths / 10);
 }
 
-// Arredonda para até `digits` casas e tira o zero final: 8,50 vira 8,5 e 8,00 vira 8,0.
-export function formatScore(value, digits = 2) {
+// Notas exibidas com uma casa (5,03 vira 5,0). Campos de edição pedem 2 casas, sem zero final.
+export function formatScore(value, digits = 1) {
   if (value == null || !Number.isFinite(value)) return '-';
   formatters[digits] ??= new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: digits });
   return formatters[digits].format(value);

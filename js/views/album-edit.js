@@ -78,11 +78,11 @@ export async function render(root, [albumId]) {
   drawTags();
 
   const evalYear = h('input', { class: 'input', inputmode: 'numeric', value: album.evaluatedYear ?? '' });
-  const groupScore = h('input', { class: 'input', inputmode: 'decimal', value: result?.groupScore != null ? formatScore(result.groupScore) : '' });
+  const groupScore = h('input', { class: 'input', inputmode: 'decimal', value: result?.groupScore != null ? formatScore(result.groupScore, 2) : '' });
   const memberInputs = session.members.map((u) => ({
     uid: u,
     input: h('input', { class: 'input', inputmode: 'decimal', placeholder: 'Opcional',
-      value: typeof result?.memberScores?.[u] === 'number' ? formatScore(result.memberScores[u]) : '' }),
+      value: typeof result?.memberScores?.[u] === 'number' ? formatScore(result.memberScores[u], 2) : '' }),
   }));
 
   const saveBtn = h('button', { class: 'btn block', type: 'submit' }, 'Salvar alterações');

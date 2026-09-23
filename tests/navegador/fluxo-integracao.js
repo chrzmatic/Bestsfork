@@ -275,12 +275,12 @@ async function main() {
     await rodar(`await until(() => $('.album-hero .sticker.big:not(.pending)'), 20000, 'nota do grupo');`);
     const nota = await rodar(`return $('.album-hero .sticker.big').textContent`);
     // (4,1+4,0) + (4,0833+4,0) + (3,8333+3,0) = 8,1 + 8,0833 + 6,8333 → média 7,67
-    ok('nota do grupo é 7,67', nota === '7,67', nota);
+    ok('nota do grupo é 7,7', nota === '7,7', nota);
     await foto('album-concluido');
     await foto('album-concluido-topo', false);
 
     await rodar(`location.hash = '#/albums'; await until(() => h1() === 'Álbuns' && $('.album-item'), 10000, 'lista');`);
-    ok('lista mostra o adesivo com a nota', await rodar(`return $$('.album-item .sticker:not(.pending)').some((s) => s.textContent === '7,67')`));
+    ok('lista mostra o adesivo com a nota', await rodar(`return $$('.album-item .sticker:not(.pending)').some((s) => s.textContent === '7,7')`));
     await foto('lista-concluida', false);
     await rodar(`location.hash = '#/stats'; await until(() => $('.totals'), 10000, 'estatísticas');`);
     ok('estatísticas contam 1 concluído', await rodar(`return $('.totals strong').textContent === '1'`));
@@ -330,7 +330,7 @@ async function main() {
       await click('Salvar registro retroativo');
       await until(() => $('.album-title h1')?.textContent === 'Álbum Antigo', 20000, 'retroativo salvo');
     `);
-    ok('retroativo mostra 8,25', await rodar(`return $('.album-hero .sticker.big')?.textContent === '8,25'`));
+    ok('retroativo mostra 8,3', await rodar(`return $('.album-hero .sticker.big')?.textContent === '8,3'`));
     await foto('retroativo-album', false);
     await rodar(`location.hash = '${albumHash}'; await until(() => $('.panel h2')?.textContent === 'Modo admin', 15000, 'painel admin');`);
     await foto('admin-album');
@@ -344,7 +344,7 @@ async function main() {
       await until(() => $('.album-hero .sticker.big:not(.pending)'), 15000, 'nota após recálculo');
       return $('.album-hero .sticker.big').textContent;
     `);
-    ok('recálculo mantém 7,67', recalc === '7,67', recalc);
+    ok('recálculo mantém 7,7', recalc === '7,7', recalc);
     await rodar(`location.hash = '#/admin'; await until(() => h1() === 'Admin', 10000, 'admin');`);
     await foto('admin');
 
@@ -469,7 +469,7 @@ async function main() {
       await goAlbums('old');
       return { label: $$('.period-picker button')[2].textContent, inOld: titles(), shown: nome, badges: badgesOf('Álbum Antigo') };
     `);
-    ok('seletor mostra o nome novo e filtra certo', r.label === 'Antigo Testamento' && r.inOld.includes('Álbum Antigo'), JSON.stringify(r));
+    ok('seletor mostra Old e filtra certo depois de renomear', r.label === 'Old' && r.inOld.includes('Álbum Antigo'), JSON.stringify(r));
     ok('renomear mantém a visibilidade', r.shown === true && r.badges.includes('Antigo Testamento'), JSON.stringify(r.badges));
     await passo(`
       await goAdmin();
@@ -480,7 +480,7 @@ async function main() {
       await until(() => tagRow('Novo Testamento'), 10000, 'renomeada new');
     `);
     r = await passo(`await goAlbums('new'); return { label: $$('.period-picker button')[1].textContent, inNew: titles(), badges: badgesOf('Disco de Teste') };`);
-    ok('New renomeada continua filtrando e oculta', r.label === 'Novo Testamento' && r.inNew.includes('Disco de Teste') && !r.badges.includes('Novo Testamento'), JSON.stringify(r));
+    ok('New renomeada continua filtrando e oculta', r.label === 'New' && r.inNew.includes('Disco de Teste') && !r.badges.includes('Novo Testamento'), JSON.stringify(r));
 
     // Tag comum: nasce visível, ocultar e apagar sem quebrar nada.
     await passo(`
@@ -655,7 +655,7 @@ async function main() {
         await until(() => h1() === 'Estatísticas' && $('.totals'), 10000, 'stats');
         return $$('.totals strong').map((e) => e.textContent);
       `);
-      ok('estatísticas contam os retroativos importados', r[2] === '4', JSON.stringify(r));
+      ok('concluídos incluem os retroativos importados', r[0] === '5' && r.length === 2, JSON.stringify(r));
     } finally {
       await Deno.remove(csv).catch(() => {});
     }

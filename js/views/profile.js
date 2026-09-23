@@ -3,6 +3,7 @@ import * as db from '../db.js';
 import { changePassword, logout, authMessage, currentUser } from '../auth.js';
 import { photoToDataUrl } from '../photo.js';
 import { session, getPref, setPref, applyTheme } from '../state.js';
+import { APP_VERSION } from '../version.js';
 
 export async function render(root) {
   const user = session.user;
@@ -109,6 +110,7 @@ export async function render(root) {
       h('button', { class: 'btn block secondary', onclick: openPasswordSheet }, 'Trocar senha')),
     adminPanel,
     logoutBtn,
+    h('p', { class: 'app-version' }, `Bestsfork ${APP_VERSION}`),
   );
 }
 

@@ -1,5 +1,5 @@
-// Troque a versão a cada publicação para os aparelhos baixarem os arquivos novos.
-const VERSION = 'v8';
+// A versão muda sozinha a cada commit (tools/bump-version.mjs), e os aparelhos baixam os arquivos novos.
+const VERSION = 'v1.0.10';
 const CACHE = `bestsfork-${VERSION}`;
 
 const FILES = [
@@ -32,6 +32,7 @@ const FILES = [
   'js/import.js',
   'js/images.js',
   'js/ordering.js',
+  'js/version.js',
   'js/score-colors.js',
   'js/artist-images.js',
   'js/views/login.js',

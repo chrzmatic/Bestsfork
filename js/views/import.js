@@ -93,7 +93,7 @@ export async function render(root) {
         title: h('input', { class: 'input', value: title, 'aria-label': 'Título' }),
         artist: h('input', { class: 'input', value: row.artist, 'aria-label': 'Artista' }),
         genre: h('input', { class: 'input', value: row.genre, placeholder: 'Sem gênero', 'aria-label': 'Gênero' }),
-        score: h('input', { class: 'input', inputmode: 'decimal', value: row.score != null ? formatScore(row.score) : '', 'aria-label': 'Nota do grupo' }),
+        score: h('input', { class: 'input', inputmode: 'decimal', value: row.score != null ? formatScore(row.score, 2) : '', 'aria-label': 'Nota do grupo' }),
         tag: h('select', { class: 'input', 'aria-label': 'Tag' },
           h('option', { value: '' }, 'Sem tag'),
           tags.map((t) => h('option', { value: t.id, selected: t.id === row.tagId }, t.name))),

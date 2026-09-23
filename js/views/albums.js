@@ -5,7 +5,7 @@ import { normalizeKey } from '../artists.js';
 import { listCover } from '../images.js';
 import { sortRecent, moveKey } from '../ordering.js';
 import {
-  OLD_TAG, NEW_TAG, SYSTEM_TAG_DEFAULTS, matchesPeriod, cardBadges, displaySettings, periodWarning, PERIOD_WARNINGS,
+  matchesPeriod, cardBadges, displaySettings, periodWarning, PERIOD_WARNINGS,
 } from '../periods.js';
 import { session, actingAdmin, getPref, setPref, setAppearance } from '../state.js';
 
@@ -43,13 +43,13 @@ export async function render(root) {
   let view = getPref('albumView', 'list');
   if (!['all', 'new', 'old'].includes(period)) period = 'all';
   if (!VIEWS.some((v) => v.id === view)) view = 'list';
+  if (!['recent', 'score', 'lowest'].includes(sort)) sort = 'recent';
   let term = '';
   let reordering = false;
   let shownNow = [];
   const list = h('ul');
   const count = h('span', { class: 'muted small' });
 
-  const tagName = (id) => tagById[id]?.name || SYSTEM_TAG_DEFAULTS[id].name;
   const artistName = (a) => a.artistCredit || artistById[a.artistId]?.name || '';
 
   function scoreSticker(a, small = false) {
@@ -143,10 +143,16 @@ export async function render(root) {
     let shown = albums.filter((a) => matchesPeriod(a, period) && (!key ||
       normalizeKey(`${a.title} ${a.artistCredit || ''} ${artistById[a.artistId]?.name || ''}`).includes(key)));
     const recent = sortRecent(shown);
-    if (sort === 'score') {
+    if (sort === 'score' || sort === 'lowest') {
       const rank = new Map(recent.map((a, i) => [a.id, i]));
-      const s = (a) => albumGroupScore(a, results[a.id], members) ?? -1;
-      shown = [...shown].sort((a, b) => s(b) - s(a) || rank.get(a.id) - rank.get(b.id));
+      const dir = sort === 'score' ? -1 : 1;
+      // Sem nota vai para o fim nas duas ordens.
+      const s = (a) => albumGroupScore(a, results[a.id], members);
+      shown = [...shown].sort((a, b) => {
+        const x = s(a), y = s(b);
+        if (x == null || y == null) return (x == null) - (y == null) || rank.get(a.id) - rank.get(b.id);
+        return dir * (x - y) || rank.get(a.id) - rank.get(b.id);
+      });
     } else {
       shown = recent;
     }
@@ -186,7 +192,7 @@ export async function render(root) {
   };
 
   const periodPicker = segmented(
-    [['all', 'Todos'], ['new', tagName(NEW_TAG)], ['old', tagName(OLD_TAG)]],
+    [['all', 'Todos'], ['new', 'New'], ['old', 'Old']],
     period,
     (id) => { period = id; setPref('albumPeriod', id); draw(); },
     'Período',
@@ -226,11 +232,10 @@ export async function render(root) {
     periodPicker,
     albums.length > 0 && searchBox('Buscar álbum ou artista', (v) => { term = v; draw(); }),
     albums.length > 0 && h('div', { class: 'list-tools' },
-      count,
-      h('div', { class: 'row', style: 'gap: 8px' },
-        segmented([['recent', 'Recentes'], ['score', 'Maior nota']], sort, (id) => { sort = id; setPref('albumSort', id); draw(); }, 'Ordenar'),
-        viewBtn),
+      segmented([['recent', 'Recentes'], ['score', 'Maior nota'], ['lowest', 'Menor nota']], sort, (id) => { sort = id; setPref('albumSort', id); draw(); }, 'Ordenar'),
+      viewBtn,
     ),
+    albums.length > 0 && h('div', { class: 'list-count' }, count),
     admin && albums.length > 1 && h('div', { class: 'reorder-bar' }, reorderBtn,
       h('span', { class: 'hint' }, 'Muda a ordem de Recentes para os três.')),
     list,

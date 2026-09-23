@@ -1,0 +1,4 @@
+#!/bin/sh
+# Atualiza a versão do app a cada commit. Instalar com: cp tools/git-hooks/pre-commit .git/hooks/
+command -v node >/dev/null 2>&1 || exit 0
+node tools/bump-version.mjs && git add js/version.js sw.js

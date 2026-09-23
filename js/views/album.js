@@ -6,8 +6,7 @@ import {
 } from '../scoring.js';
 import { albumGroupScore } from '../stats.js';
 import { pageCover } from '../images.js';
-import { scoreColors } from '../score-colors.js';
-import { appearance, setAppearance } from '../state.js';
+import { setAppearance } from '../state.js';
 import { pageBadges, displaySettings, periodWarning, PERIOD_WARNINGS } from '../periods.js';
 import { session, actingAdmin, getPref } from '../state.js';
 import { navigate } from '../app.js';
@@ -16,7 +15,7 @@ import { navigate } from '../app.js';
 function showIn(tenths, fromScale, toScale) {
   if (typeof tenths !== 'number') return '-';
   const v = (tenths / 10) * (toScale / fromScale);
-  return formatScore(v, Number.isInteger(Math.round(v * 1000) / 100) ? 1 : 2);
+  return formatScore(v);
 }
 
 function groupByDisc(tracks) {
@@ -390,8 +389,6 @@ export async function render(root, [albumId]) {
         h('div', { class: 'result-grid' },
           members.map((u) => h('div', { class: 'result-cell' }, avatar(users[u], 'md'),
             h('strong', null, formatScore(result.memberScores[u])), h('small', null, userName(users[u])))),
-          h('div', { class: 'result-cell', style: (() => { const c = scoreColors(score, appearance.scoreBands); return `background: ${c.bg}; color: ${c.ink}`; })() },
-            h('small', { style: 'color: inherit' }, 'Grupo'), h('strong', { style: 'font-size: 30px' }, formatScore(score))),
         ),
       );
     }
