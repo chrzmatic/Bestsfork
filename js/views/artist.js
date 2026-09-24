@@ -3,7 +3,7 @@ import {
   artistAvatar, add, put,
 } from '../ui.js';
 import * as db from '../db.js';
-import { albumGroupScore } from '../stats.js';
+import { albumGroupScore, withoutExpired } from '../stats.js';
 import { formatScore } from '../scoring.js';
 import { listCover, artistImage } from '../images.js';
 import { cardBadges, displaySettings } from '../periods.js';
@@ -12,7 +12,7 @@ import { session, actingAdmin } from '../state.js';
 import { navigate } from '../app.js';
 
 export async function render(root, [artistId]) {
-  const [artist, albums, results, progress, tags, genres, displayDoc] = await Promise.all([
+  const [artist, allAlbums, results, progress, tags, genres, displayDoc] = await Promise.all([
     db.getArtist(artistId), db.listAlbums(), db.listResults(), db.listAllProgress(), db.listTags(),
     db.listGenres().catch(() => []), db.getDisplay().catch(() => ({})),
   ]);
@@ -20,6 +20,7 @@ export async function render(root, [artistId]) {
     add(root, screenHead('Artista', { back: '#/artists' }), emptyState('Artista não encontrado', null));
     return;
   }
+  const albums = withoutExpired(allAlbums, results, progress, session.members);
   const media = artist.customPhoto ? await db.getMedia(`artist-${artistId}`).catch(() => null) : null;
   const members = session.members;
   const tagById = Object.fromEntries(tags.map((t) => [t.id, t]));

@@ -3,9 +3,11 @@ import { artistImage } from '../images.js';
 import * as db from '../db.js';
 import { normalizeKey } from '../artists.js';
 import { session } from '../state.js';
+import { withoutExpired } from '../stats.js';
 
 export async function render(root) {
-  const [artists, albums, results] = await Promise.all([db.listArtists(), db.listAlbums(), db.listResults()]);
+  const [artists, allAlbums, results] = await Promise.all([db.listArtists(), db.listAlbums(), db.listResults()]);
+  const albums = withoutExpired(allAlbums, results);
   const stats = {};
   for (const a of albums) {
     const s = (stats[a.artistId] ??= { count: 0 });

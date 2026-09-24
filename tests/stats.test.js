@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computeStats, filterAlbums, albumEvalYear, albumGroupScore, latestEvaluatedId, retroEvalDate, evalDateValue,
-  isExpired, openEvaluation, lovedScore, rejectionScore,
+  isExpired, openEvaluation, withoutExpired, lovedScore, rejectionScore,
 } from '../js/stats.js';
 
 const U = ['u1', 'u2', 'u3'];
@@ -86,6 +86,20 @@ test('prazo de 24 horas e uma avaliação aberta por vez', () => {
   assert.equal(openEvaluation([retro, venceu], {}, now), null);
   assert.equal(openEvaluation([aberta], { o: { memberScores: {} } }, now), null);
   assert.equal(openEvaluation([antiga], {}, now), antiga);
+});
+
+test('vencidas saem das telas, a não ser que todos já tenham enviado', () => {
+  const now = new Date(2026, 8, 25, 12).getTime();
+  const venceu = { id: 'v', retro: false, expiresAt: new Date(2026, 8, 25, 11) };
+  const aberta = { id: 'o', retro: false, expiresAt: new Date(2026, 8, 25, 13) };
+  const concluida = { id: 'c', retro: false, expiresAt: new Date(2026, 8, 25, 11) };
+  const albums = [venceu, aberta, concluida];
+  const results = { c: { memberScores: {} } };
+  assert.deepEqual(withoutExpired(albums, results, {}, [], now), [aberta, concluida]);
+  // Todos enviaram, mas o resultado não foi gravado: continua aparecendo para a autocorreção.
+  const progress = { v: { u1: 'final', u2: 'final' } };
+  assert.deepEqual(withoutExpired(albums, results, progress, ['u1', 'u2'], now), albums);
+  assert.deepEqual(withoutExpired(albums, results, { v: { u1: 'final' } }, ['u1', 'u2'], now), [aberta, concluida]);
 });
 
 test('nota das mais queridas e rejeição das menos queridas vão de 0 a 5', () => {

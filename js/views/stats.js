@@ -1,15 +1,17 @@
 import { h, screenHead, cover, avatar, userName, sheet, switchField, withBusy, deliverFile, emptyState, add, put } from '../ui.js';
 import * as db from '../db.js';
-import { computeStats, albumEvalYear, DEFAULT_FILTERS } from '../stats.js';
+import { computeStats, albumEvalYear, withoutExpired, DEFAULT_FILTERS } from '../stats.js';
 import { albumsCsv, tracksCsv, fullJson, fileName, exportAlbums } from '../export.js';
 import { formatScore } from '../scoring.js';
 import { session, getPref, setPref } from '../state.js';
 import { listCover } from '../images.js';
 
 export async function render(root) {
-  const [albums, artists, results, users, tags, genres] = await Promise.all([
+  const [allAlbums, artists, results, users, tags, genres] = await Promise.all([
     db.listAlbums(), db.listArtists(), db.listResults(), db.listUsers(), db.listTags(), db.listGenres().catch(() => []),
   ]);
+  // Vencidas não contam como "em andamento".
+  const albums = withoutExpired(allAlbums, results);
   const data = { albums, artists, results, users, tags, genres, memberUids: session.members };
   const usersById = Object.fromEntries(users.map((u) => [u.id, u]));
   const filters = { ...DEFAULT_FILTERS, ...getPref('statsFilters', {}), includeRetro: true };

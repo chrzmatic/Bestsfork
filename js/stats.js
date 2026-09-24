@@ -66,6 +66,13 @@ export function isExpired(album, result, now = Date.now()) {
   return !album.retro && !result && album.expiresAt instanceof Date && album.expiresAt.getTime() <= now;
 }
 
+// Tira das telas as avaliações vencidas, que ficam no banco até o admin apagar. Se o progresso
+// mostra que todos enviaram (só o resultado faltou gravar), o álbum continua.
+export function withoutExpired(albums, results, progress = {}, members = [], now = Date.now()) {
+  const allFinal = (a) => members.length > 0 && members.every((u) => progress[a.id]?.[u] === 'final');
+  return albums.filter((a) => !isExpired(a, results[a.id], now) || allFinal(a));
+}
+
 // A avaliação em grupo ainda aberta, se houver. Só pode existir uma por vez.
 export function openEvaluation(albums, results, now = Date.now()) {
   return albums.find((a) => !a.retro && !results[a.id] && !isExpired(a, results[a.id], now)) || null;

@@ -1,6 +1,6 @@
 import { h, icon, cover, sticker, badge, badgeList, avatars, screenHead, searchBox, emptyState, withBusy, toast, add, put } from '../ui.js';
 import * as db from '../db.js';
-import { albumGroupScore, latestEvaluatedId, isExpired } from '../stats.js';
+import { albumGroupScore, latestEvaluatedId, withoutExpired } from '../stats.js';
 import { normalizeKey } from '../artists.js';
 import { listCover } from '../images.js';
 import { sortRecent, moveKey } from '../ordering.js';
@@ -28,8 +28,8 @@ export async function render(root) {
   const admin = actingAdmin();
 
   // Avaliações que venceram sem todos enviarem somem da lista. Só o admin pode apagar, então a limpeza roda no aparelho dele.
-  const allFinal = (a) => members.length > 0 && members.every((u) => (progress[a.id] || {})[u] === 'final');
-  const expired = albums.filter((a) => isExpired(a, results[a.id]) && !allFinal(a));
+  const visible = withoutExpired(albums, results, progress, members);
+  const expired = albums.filter((a) => !visible.includes(a));
   for (const a of expired) albums.splice(albums.indexOf(a), 1);
   if (session.isAdmin) for (const a of expired) db.deleteExpiredAlbum(a.id).catch((err) => console.error(err));
 
