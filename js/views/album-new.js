@@ -8,7 +8,7 @@ import { navigate } from '../app.js';
 import { trackEditor, tracksFromLines } from './track-editor.js';
 import { initialTags } from '../periods.js';
 import { autoGenre } from '../genre-lookup.js';
-import { evalDateValue } from '../stats.js';
+import { evalDateValue, openEvaluation, EVAL_WINDOW_MS } from '../stats.js';
 
 // Nota final de 0 a 10 com até 2 casas, como digitada pelo admin.
 export function parseFinal(text) {
@@ -33,8 +33,19 @@ export async function render(root) {
   const allowRetro = actingAdmin();
   const body = h('div');
   let retro = false;
+  const [albumsNow, resultsNow] = await Promise.all([db.listAlbums(), db.listResults()]).catch(() => [[], {}]);
+  const open = openEvaluation(albumsNow, resultsNow);
+  // Com uma avaliação em grupo aberta, só o retroativo fica liberado.
+  const openNotice = open && h('div', { class: 'notice' },
+    `A avaliação de ${open.title} ainda está aberta. Um novo álbum só pode ser criado depois que ela terminar ou vencer.`,
+    allowRetro && ' Registros retroativos continuam liberados.');
+  if (open && !allowRetro) {
+    add(root, screenHead('Novo álbum', { back: '#/albums' }), openNotice,
+      h('a', { class: 'btn secondary', href: `#/album/${open.id}` }, 'Abrir a avaliação'));
+    return;
+  }
 
-  add(root, screenHead('Novo álbum', { back: '#/albums' }), body);
+  add(root, screenHead('Novo álbum', { back: '#/albums' }), openNotice, body);
   searchStep();
 
   function searchStep(initial = '') {
@@ -274,6 +285,10 @@ export async function render(root) {
       }
 
       const existing = await db.listAlbums().catch(() => []);
+      if (!retro) {
+        const stillOpen = openEvaluation(existing, await db.listResults().catch(() => ({})));
+        if (stillOpen) { error.textContent = `A avaliação de ${stillOpen.title} ainda está aberta. Ative o registro retroativo ou espere ela terminar.`; return; }
+      }
       const dupe = existing.find((x) =>
         (data.musicbrainzReleaseId && x.musicbrainzReleaseId === data.musicbrainzReleaseId) ||
         (normalizeKey(x.title) === normalizeKey(t) && (x.artistId === normalizeKey(a) || normalizeKey(x.artistCredit || '') === normalizeKey(credit.value || a))));
@@ -298,6 +313,8 @@ export async function render(root) {
             retro,
             evaluatedYear,
             evaluatedAt,
+            // Sem resultado até lá, o álbum é apagado.
+            expiresAt: retro ? null : new Date(Date.now() + EVAL_WINDOW_MS),
             tags: [...selectedTags],
           },
           artistName: a,

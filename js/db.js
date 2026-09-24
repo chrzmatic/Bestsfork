@@ -1,14 +1,15 @@
 import {
-  doc, getDoc, getDocs, collection, collectionGroup, query, where,
+  doc, getDoc, getDocs, getDocFromServer, getDocsFromServer, collection, collectionGroup, query, where,
   setDoc, updateDoc, deleteDoc, writeBatch, runTransaction, serverTimestamp,
   arrayRemove,
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
 import { db } from './firebase.js';
 import { artistKey, resolveArtist } from './artists.js';
-import { personalFinal, buildResult, countedTracks } from './scoring.js';
+import { personalFinal, buildResult, countedTracks, picksComplete } from './scoring.js';
 import { SYSTEM_TAG_DEFAULTS, isSystemTag } from './periods.js';
 import { genreKey } from './genres.js';
 import { findArtistPhoto } from './artist-images.js';
+import { isExpired } from './stats.js';
 
 // Converte Timestamps do Firestore em Date, recursivamente.
 function plain(value) {
@@ -388,6 +389,25 @@ export async function deleteAlbum(id) {
   if (album?.artistId) await deleteArtistIfEmpty(album.artistId);
 }
 
+// Apaga uma avaliação vencida só depois de conferir no servidor, e não no cache do aparelho,
+// que ela continua sem resultado e sem todos terem enviado.
+export async function deleteExpiredAlbum(id) {
+  if (!isOnline()) return false;
+  const [albumSnap, resultSnap, progressSnap] = await Promise.all([
+    getDocFromServer(doc(db, 'albums', id)),
+    getDocFromServer(doc(db, 'results', id)),
+    getDocsFromServer(collection(db, 'albums', id, 'progress')),
+  ]);
+  const album = fromSnap(albumSnap);
+  if (!album || !isExpired(album, fromSnap(resultSnap))) return false;
+  const uids = await getMemberUids();
+  const prog = Object.fromEntries(progressSnap.docs.map((d) => [d.id, d.data().status]));
+  if (uids.length && uids.every((u) => prog[u] === 'final')) return false;
+  await deleteAlbum(id);
+  invalidate('albums');
+  return true;
+}
+
 /* Progresso e resultados */
 
 // Mapa albumId -> { uid: status } de todos os álbuns numa consulta só.
@@ -443,6 +463,9 @@ export async function createRating(albumId, uid, scale) {
     scale,
     trackScores: {},
     albumScore: null,
+    favorites: [],
+    leastFavorite: null,
+    comment: '',
     status: 'draft',
     personalFinal: null,
     createdAt: serverTimestamp(),
@@ -455,21 +478,28 @@ export async function createRating(albumId, uid, scale) {
 }
 
 // Não espera o servidor: com cache offline a promessa só resolve quando sincroniza.
-export function saveDraft(albumId, uid, { scale, trackScores, albumScore }) {
-  return updateDoc(doc(db, 'albums', albumId, 'ratings', uid), {
-    scale, trackScores, albumScore, updatedAt: serverTimestamp(),
-  });
+// As escolhas de faixas e o comentário só vão quando vêm junto (a normalização não mexe neles).
+export function saveDraft(albumId, uid, { scale, trackScores, albumScore, favorites, leastFavorite, comment }) {
+  const patch = { scale, trackScores, albumScore, updatedAt: serverTimestamp() };
+  if (favorites !== undefined) patch.favorites = favorites;
+  if (leastFavorite !== undefined) patch.leastFavorite = leastFavorite;
+  if (comment !== undefined) patch.comment = comment;
+  return updateDoc(doc(db, 'albums', albumId, 'ratings', uid), patch);
 }
 
 export async function finalizeRating(album, uid, rating) {
   if (!isOnline()) throw new Error('Sem conexão. Conecte-se à internet para enviar a avaliação definitiva.');
   const pf = personalFinal(rating, album.tracks);
   if (pf == null) throw new Error('Preencha todas as faixas e a nota do álbum antes de enviar.');
+  if (!picksComplete(rating, album.tracks)) throw new Error('Escolha as faixas favoritas e a menos favorita antes de enviar.');
   const batch = writeBatch(db);
   batch.update(doc(db, 'albums', album.id, 'ratings', uid), {
     scale: rating.scale,
     trackScores: rating.trackScores,
     albumScore: rating.albumScore,
+    favorites: rating.favorites,
+    leastFavorite: rating.leastFavorite,
+    comment: rating.comment || '',
     status: 'final',
     personalFinal: pf,
     finalizedAt: serverTimestamp(),

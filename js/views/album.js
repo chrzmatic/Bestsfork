@@ -1,13 +1,14 @@
-import { h, icon, cover, sticker, badge, badgeList, avatar, userName, toast, confirmDialog, sheet, withBusy, formatDateTime, formatLength, debounce, emptyState, add } from '../ui.js';
+import { h, icon, cover, sticker, badge, badgeList, avatar, userName, toast, confirmDialog, sheet, withBusy, formatDateTime, formatLength, debounce, emptyState, screenHead, add, put } from '../ui.js';
 import * as db from '../db.js';
 import {
   maxFor, countedTracks, missingTracks, isComplete, trackAverage5, album5, personalFinal,
   convertScale, conversionLosesPrecision, parseScore, formatTenths, formatScore,
+  favoriteSlots, missingPicks, picksComplete, COMMENT_MAX,
 } from '../scoring.js';
-import { albumGroupScore, retroEvalDate } from '../stats.js';
+import { albumGroupScore, retroEvalDate, isExpired } from '../stats.js';
 import { pageCover } from '../images.js';
 import { setAppearance } from '../state.js';
-import { pageBadges, displaySettings, periodWarning, PERIOD_WARNINGS } from '../periods.js';
+import { pageBadges, periodWarning, PERIOD_WARNINGS } from '../periods.js';
 import { session, actingAdmin, getPref } from '../state.js';
 import { navigate } from '../app.js';
 
@@ -63,6 +64,12 @@ export async function render(root, [albumId]) {
   if (!album.retro && !result && members.length && members.every((u) => progress[u] === 'final')) {
     result = await db.ensureResult(album, progress).catch(() => null);
   }
+  // Se todos enviaram e só o resultado falhou em gravar, não trata como vencida (a lista faz o mesmo).
+  if (isExpired(album, result) && !members.every((u) => progress[u] === 'final')) {
+    add(root, screenHead(album.title, { back: '#/albums' }),
+      emptyState('Esta avaliação venceu', 'Passaram 24 horas sem todos enviarem, então o álbum vai ser apagado.'));
+    return;
+  }
 
   const admin = actingAdmin();
   const iFinalized = mine?.status === 'final';
@@ -94,8 +101,7 @@ export async function render(root, [albumId]) {
     if (score != null) add(hero, sticker(score, { big: true }));
     else if (!album.retro) add(hero, sticker(null, { big: true, pending: `Aguardando ${members.length - done} de ${members.length}` }));
 
-    const meta = badgeList(pageBadges(album, tagById, displaySettings(displayDoc)));
-    if (album.retro && album.evaluatedYear) meta.push(badge(`Avaliado em ${album.evaluatedYear}`));
+    const meta = badgeList(pageBadges(album, tagById));
     const warn = admin && periodWarning(album);
     if (warn) meta.push(badge(PERIOD_WARNINGS[warn], 'warn'));
 
@@ -137,13 +143,15 @@ export async function render(root, [albumId]) {
         h('div', { class: 'result-grid' }, withScore.map((u) => h('div', { class: 'result-cell' },
           avatar(users[u], 'md'), h('strong', null, formatScore(memberScores[u])), h('small', null, userName(users[u]))))));
     }
-    const when = retroEvalDate(album);
-    if (when) add(box, h('p', { class: 'hint result-date' }, `Avaliado em ${formatDateTime(when.date, { time: when.hasTime })}`));
     if (album.tracks?.length) {
       add(box, h('div', { class: 'section' }, h('h2', null, 'Faixas')),
         trackList(album.tracks, (t) => h('li', { class: `track${t.excluded ? ' excluded' : ''}` },
           h('span', { class: 'num' }, t.position), trackTitle(t), h('span'))));
     }
+    // No fim da página: data completa (com hora, se houver), só o ano, ou nada.
+    const when = retroEvalDate(album);
+    const text = when ? formatDateTime(when.date, { time: when.hasTime }) : album.evaluatedYear;
+    if (text) add(box, h('p', { class: 'hint result-date' }, `Avaliado em ${text}`));
     return box;
   }
 
@@ -170,6 +178,9 @@ export async function render(root, [albumId]) {
       scale: initial.scale,
       trackScores: { ...initial.trackScores },
       albumScore: initial.albumScore,
+      favorites: [...(initial.favorites || [])],
+      leastFavorite: initial.leastFavorite ?? null,
+      comment: initial.comment || '',
     };
     const saveState = h('div', { class: 'save-state', 'aria-live': 'polite' });
     const partial = h('strong');
@@ -191,7 +202,8 @@ export async function render(root, [albumId]) {
         saveState.textContent = 'Rascunho salvo';
       } catch (err) {
         console.error(err);
-        if (err?.code === 'permission-denied') {
+        // Sem permissão, ou o álbum foi apagado por ter vencido: tentar de novo não adianta.
+        if (err?.code === 'permission-denied' || err?.code === 'not-found') {
           saveState.textContent = 'Não foi possível salvar. Esta avaliação não está mais aberta para edição.';
           return;
         }
@@ -247,7 +259,8 @@ export async function render(root, [albumId]) {
       const pf = personalFinal(rating, album.tracks);
       finalPart.textContent = pf == null ? '-' : formatScore(pf);
       const missing = missingTracks(rating, album.tracks);
-      sendBtn.disabled = !isComplete(rating, album.tracks);
+      const picks = missingPicks(rating, album.tracks);
+      sendBtn.disabled = !isComplete(rating, album.tracks) || !picksComplete(rating, album.tracks);
       const allTracks = missing.length === 0;
       normBtn.classList.toggle('disabled', !allTracks);
       normBtn.setAttribute('aria-disabled', String(!allTracks));
@@ -256,6 +269,8 @@ export async function render(root, [albumId]) {
       const parts = [];
       if (missing.length) parts.push(`Faltam ${missing.length} ${missing.length === 1 ? 'faixa' : 'faixas'}`);
       if (rating.albumScore == null) parts.push('falta a nota do álbum');
+      if (picks.favorites) parts.push('faltam as favoritas');
+      if (picks.least) parts.push('falta a menos favorita');
       missingText.textContent = parts.length ? `${parts.join(', ')}.` : 'Tudo preenchido. Revise e envie quando quiser.';
     }
 
@@ -290,6 +305,42 @@ export async function render(root, [albumId]) {
       },
     }, `0 a ${s}`));
 
+    // Favoritas em ordem, a menos favorita e um comentário opcional. Uma faixa só pode ocupar um lugar.
+    const slots = favoriteSlots(album.tracks);
+    const pickSelect = (label, value) => {
+      const sel = h('select', { class: 'input', 'aria-label': label },
+        h('option', { value: '' }, 'Escolher faixa'),
+        countedTracks(album.tracks).map((t) => h('option', { value: t.id }, t.title)));
+      sel.value = value || '';
+      sel.addEventListener('change', () => { readPicks(); syncPicks(); changed(); });
+      return sel;
+    };
+    const favSelects = Array.from({ length: slots }, (_, i) => pickSelect(`${i + 1}º lugar`, rating.favorites[i]));
+    const leastSelect = pickSelect('Menos favorita', rating.leastFavorite);
+    const readPicks = () => {
+      rating.favorites = favSelects.map((s) => s.value || null);
+      rating.leastFavorite = leastSelect.value || null;
+    };
+    const syncPicks = () => {
+      const chosen = [...favSelects, leastSelect].map((s) => s.value);
+      for (const sel of [...favSelects, leastSelect]) {
+        for (const opt of sel.options) opt.disabled = opt.value !== '' && opt.value !== sel.value && chosen.includes(opt.value);
+      }
+    };
+    const commentCount = h('small', { class: 'hint' });
+    const comment = h('textarea', { class: 'input comment-input', maxlength: COMMENT_MAX, placeholder: 'Opcional.' });
+    comment.value = rating.comment;
+    const countComment = () => { commentCount.textContent = `${comment.value.length}/${COMMENT_MAX}`; };
+    comment.addEventListener('input', () => { rating.comment = comment.value; countComment(); changed(); });
+    countComment();
+    syncPicks();
+    function changed() {
+      dirty = true;
+      saveState.textContent = '';
+      save();
+      refresh();
+    }
+
     // Retoma a edição sem perder o que está pendente ao navegar para a normalização.
     normBtn.addEventListener('click', () => save.flush());
 
@@ -305,6 +356,11 @@ export async function render(root, [albumId]) {
         h('div', null, h('h3', null, 'Nota merecida do álbum'), h('p', { class: 'hint' }, `De 0 a ${rating.scale}, pelo álbum como um todo.`)),
         albumInput,
       ),
+      slots > 0 && h('div', { class: 'section' }, h('h2', null, 'Faixas favoritas'),
+        h('p', { class: 'hint' }, slots === 3 ? 'Da mais amada para a terceira.' : 'Da mais amada para a menos.')),
+      favSelects.map((sel, i) => h('label', { class: 'field' }, h('span', null, `${i + 1}º lugar`), sel)),
+      slots > 0 && h('label', { class: 'field' }, h('span', null, 'Menos favorita'), leastSelect),
+      h('label', { class: 'field' }, h('span', null, 'Comentário'), comment, commentCount),
       h('div', { class: 'row', style: 'justify-content: space-between' }, missingText, normBtn),
       h('div', { class: 'summary-bar' },
         h('div', { class: 'figures' },
@@ -382,22 +438,63 @@ export async function render(root, [albumId]) {
       ),
     );
 
+    if (mine.adminEdited) add(box, h('p', { class: 'hint', style: 'margin-top: 12px' }, 'Esta avaliação foi ajustada pelo admin.'));
     if (waiting.length) {
       add(box, h('div', { class: 'notice', style: 'margin-top: 16px' },
         `Aguardando ${waiting.length} de ${members.length}: ${waiting.map((u) => userName(users[u])).join(', ')}.`));
     } else if (score != null) {
+      // Ordem fixa: consenso das faixas, resultado e, por último, a data.
       add(box,
+        consensusBox(),
         h('div', { class: 'section' }, h('h2', null, 'Resultado')),
-        h('div', { class: 'result-grid' },
-          members.map((u) => h('div', { class: 'result-cell' }, avatar(users[u], 'md'),
-            h('strong', null, formatScore(result.memberScores[u])), h('small', null, userName(users[u])))),
-        ),
+        resultCells(ratingOf),
         // Logo após o último envio o resultado ainda vem sem data; ela aparece ao abrir de novo.
         result.completedAt instanceof Date && h('p', { class: 'hint result-date' }, `Avaliado em ${formatDateTime(result.completedAt)}`),
       );
     }
-    if (mine.adminEdited) add(box, h('p', { class: 'hint', style: 'margin-top: 12px' }, 'Esta avaliação foi ajustada pelo admin.'));
     return box;
+  }
+
+  // Mais e menos amada do grupo; sem consenso, a linha não aparece.
+  function consensusBox() {
+    const trackOf = (id) => (id ? album.tracks.find((t) => t.id === id) : null);
+    const fav = trackOf(result.favoriteTrack);
+    const least = trackOf(result.leastTrack);
+    if (!fav && !least) return null;
+    const avg = fav ? result.trackAvgs?.[fav.id] : null;
+    return h('div', { class: 'picks-summary' },
+      fav && h('div', { class: 'pick-line' }, h('span', { class: 'small muted' }, 'Mais amada'), h('strong', null, fav.title),
+        typeof avg === 'number' && h('span', { class: 'pick-avg' }, formatScore(avg))),
+      least && h('div', { class: 'pick-line' }, h('span', { class: 'small muted' }, 'Menos amada'), h('strong', null, least.title)),
+    );
+  }
+
+  // Um bloco por membro; tocar abre as favoritas, a menos favorita e o comentário dele.
+  function resultCells(ratingOf) {
+    const titleOf = (id) => album.tracks.find((t) => t.id === id)?.title;
+    const detail = h('div', { class: 'member-picks', hidden: true });
+    let openUid = null;
+    const cells = members.map((u) => {
+      const r = ratingOf(u) || {};
+      const favs = (r.favorites || []).filter((id) => titleOf(id));
+      const least = titleOf(r.leastFavorite);
+      const has = favs.length > 0 || least || r.comment;
+      const content = [avatar(users[u], 'md'), h('strong', null, formatScore(result.memberScores[u])), h('small', null, userName(users[u]))];
+      if (!has) return h('div', { class: 'result-cell' }, content);
+      const cell = h('button', { class: 'result-cell', type: 'button', 'aria-expanded': 'false', onclick: () => {
+        openUid = openUid === u ? null : u;
+        for (const c of cells) if (c.tagName === 'BUTTON') c.setAttribute('aria-expanded', String(c === cell && openUid === u));
+        detail.hidden = openUid == null;
+        if (openUid) {
+          put(detail,
+            favs.length > 0 && h('ol', null, favs.map((id) => h('li', null, titleOf(id)))),
+            least && h('p', null, h('span', { class: 'muted' }, 'Menos favorita: '), least),
+            r.comment && h('p', { class: 'member-comment' }, r.comment));
+        }
+      } }, content);
+      return cell;
+    });
+    return h('div', null, h('div', { class: 'result-grid' }, cells), detail);
   }
 
   function adminBody() {

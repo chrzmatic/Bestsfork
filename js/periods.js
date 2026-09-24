@@ -61,10 +61,10 @@ export function cardBadges(album, tagsById, display) {
   return out;
 }
 
-// Na página do álbum aparece tudo; `hiddenOnCards` serve para o estilo discreto.
-export function pageBadges(album, tagsById, display) {
+// Na página do álbum aparecem todas as tags; `hiddenOnCards` serve para o estilo discreto.
+// O retroativo não ganha selo aqui: a linha "Avaliado em" no fim da página já diz quando foi.
+export function pageBadges(album, tagsById) {
   const out = [];
-  if (album?.retro) out.push({ kind: 'retro', label: 'Retroativo', hiddenOnCards: !display?.showRetroBadge });
   for (const id of album?.tags || []) {
     const tag = tagsById?.[id];
     if (tag) out.push({ kind: 'tag', id, label: tag.name, hiddenOnCards: !tagShownOnCards(tag) });

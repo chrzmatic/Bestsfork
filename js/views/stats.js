@@ -108,8 +108,14 @@ export async function render(root) {
 
     if (s.topTracks.length) {
       out.push(...section('Faixas mais queridas', h('ol', { class: 'rank' }, s.topTracks.map((x) =>
-        albumRow(x.album, formatScore(x.avg), `${x.album.title}, ${x.album.artistCredit || ''}`, x.track.title))),
-      'Média do grupo de 0 a 5. Retroativos não entram.'));
+        albumRow(x.album, formatScore(x.score), `${x.album.title}, ${x.album.artistCredit || ''}`, x.track.title))),
+      'De 0 a 5: nota do grupo e escolhas de favoritas.'));
+    }
+
+    if (s.leastTracks.length) {
+      out.push(...section('Faixas menos queridas', h('ol', { class: 'rank' }, s.leastTracks.map((x) =>
+        albumRow(x.album, formatScore(x.rejection), `${x.album.title}, ${x.album.artistCredit || ''}`, x.track.title))),
+      'Rejeição de 0 a 5: nota baixa e escolhas de menos favorita. Maior é pior.'));
     }
 
     if (s.topArtists.length) {
@@ -125,7 +131,7 @@ export async function render(root) {
         h('div', { style: 'min-width: 0' },
           h('div', { class: 'ellipsis', style: 'font-weight: 650' }, x.genre.name),
           h('div', { class: 'muted small' }, `${x.count} ${x.count === 1 ? 'álbum' : 'álbuns'}`)),
-        h('strong', null, formatScore(x.avg)))))));
+        h('strong', null, formatScore(x.avg))))), 'Mínimo de 2 álbuns concluídos.'));
     }
 
     const members = s.members.filter((m) => m.avg != null);

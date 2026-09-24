@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   computeStats, filterAlbums, albumEvalYear, albumGroupScore, latestEvaluatedId, retroEvalDate, evalDateValue,
+  isExpired, openEvaluation, lovedScore, rejectionScore,
 } from '../js/stats.js';
 
 const U = ['u1', 'u2', 'u3'];
@@ -68,6 +69,80 @@ test('campos de data e hora do registro retroativo', () => {
   assert.deepEqual(evalDateValue('2022-03-15', '21:30'), { value: '2022-03-15T21:30', year: 2022, error: null });
   assert.equal(evalDateValue('', '21:30').error, 'Preencha a data para usar a hora.');
   assert.equal(evalDateValue('15/03/2022', '').error, 'Data de avaliação inválida.');
+});
+
+test('prazo de 24 horas e uma avaliação aberta por vez', () => {
+  const now = new Date(2026, 8, 25, 12).getTime();
+  const venceu = { id: 'v', retro: false, expiresAt: new Date(2026, 8, 25, 11) };
+  const aberta = { id: 'o', retro: false, expiresAt: new Date(2026, 8, 25, 13) };
+  const antiga = { id: 'x', retro: false };
+  const retro = { id: 'r', retro: true };
+  assert.equal(isExpired(venceu, null, now), true);
+  assert.equal(isExpired(venceu, { memberScores: {} }, now), false);
+  assert.equal(isExpired(aberta, null, now), false);
+  assert.equal(isExpired(antiga, null, now), false);
+  assert.equal(isExpired(retro, null, now), false);
+  assert.equal(openEvaluation([retro, venceu, aberta], {}, now), aberta);
+  assert.equal(openEvaluation([retro, venceu], {}, now), null);
+  assert.equal(openEvaluation([aberta], { o: { memberScores: {} } }, now), null);
+  assert.equal(openEvaluation([antiga], {}, now), antiga);
+});
+
+test('nota das mais queridas e rejeição das menos queridas vão de 0 a 5', () => {
+  const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-9, `${a} != ${b}`);
+  near(lovedScore(5, 9, 3), 5);
+  near(lovedScore(0, 0, 3), 0);
+  near(lovedScore(5, 0, 3), 4);
+  near(lovedScore(4.5, 9, 3), 4.6);
+  near(lovedScore(4, 3, 3), 3.2 + 1 / 3);
+  near(rejectionScore(0, 3, 3), 5);
+  near(rejectionScore(5, 0, 3), 0);
+  near(rejectionScore(1, 3, 3), 4.2);
+  near(rejectionScore(2.5, 2, 3), 2 + 2 / 3);
+  // Sem membros, as escolhas não contam; mais pontos que o possível não passam de 5.
+  near(lovedScore(5, 9, 0), 4);
+  near(lovedScore(5, 99, 3), 5);
+});
+
+test('faixas mais queridas combinam média e favoritas', () => {
+  const d = sample();
+  // Sem escolhas, a ordem segue a média: a2:t1 (4,8), a1:t1 (4,5), a1:t2 (3).
+  // Com 9 pontos, a1:t1 fica com 4,5 * 0,8 + 1 = 4,6 e passa a2:t1 (4,8 * 0,8 = 3,84).
+  d.results.a1.pickPoints = { t1: 9 };
+  const s = computeStats(d);
+  assert.deepEqual(s.topTracks.map((x) => `${x.album.id}:${x.track.id}`), ['a1:t1', 'a2:t1', 'a1:t2']);
+  assert.equal(s.topTracks[0].score, 4.6);
+});
+
+test('faixas menos queridas: só as marcadas e fora das mais queridas', () => {
+  const d = sample();
+  assert.deepEqual(computeStats(d).leastTracks, []);
+  d.results.a1.leastVotes = { t2: 2 };
+  // Com só 3 faixas, todas estão nas mais queridas, então nenhuma entra nas menos queridas.
+  assert.deepEqual(computeStats(d).leastTracks, []);
+  const many = sample();
+  many.albums[0].tracks = Array.from({ length: 22 }, (_, i) => ({ id: `t${i}`, title: `F${i}` }));
+  many.results.a1.trackAvgs = Object.fromEntries(many.albums[0].tracks.map((t, i) => [t.id, 5 - i * 0.2]));
+  many.results.a1.leastVotes = { t21: 3, t20: 1 };
+  const least = computeStats(many).leastTracks;
+  assert.deepEqual(least.map((y) => y.track.id), ['t21', 't20']);
+  assert.equal(least[0].rejection, (5 - 0.8) * 0.8 + 1);
+});
+
+test('listas de faixas: resultados antigos só pela média e limites de 20 e 10', () => {
+  const d = sample();
+  // Resultados sem pickPoints (antigos): a nota é só 80% da média.
+  assert.equal(computeStats(d).topTracks[0].score, 4.8 * 0.8);
+  d.albums[0].tracks = Array.from({ length: 30 }, (_, i) => ({ id: `t${i}`, title: `F${i}` }));
+  d.results.a1.trackAvgs = Object.fromEntries(d.albums[0].tracks.map((t, i) => [t.id, 5 - i * 0.1]));
+  d.results.a1.leastVotes = Object.fromEntries(d.albums[0].tracks.map((t) => [t.id, 1]));
+  const s = computeStats(d);
+  assert.equal(s.topTracks.length, 20);
+  assert.equal(s.leastTracks.length, 10);
+  const loved = new Set(s.topTracks.map((x) => `${x.album.id}:${x.track.id}`));
+  assert.ok(s.leastTracks.every((x) => !loved.has(`${x.album.id}:${x.track.id}`)));
+  // A pior média com voto fica em primeiro nas menos queridas.
+  assert.equal(s.leastTracks[0].track.id, 't29');
 });
 
 test('melhores e piores álbuns', () => {
@@ -234,11 +309,11 @@ test('filtro por gênero', () => {
   assert.deepEqual(computeStats(d, { genreId: 'pop' }).bestAlbums.map((x) => x.album.id), ['o', 'b']);
 });
 
-test('média por gênero ignora álbum sem gênero ou com gênero apagado', () => {
+test('média por gênero ignora álbum sem gênero, gênero apagado e gênero com um álbum só', () => {
   const d = periodData();
   d.albums[3].genreId = 'apagado';
   const s = computeStats(d);
-  assert.deepEqual(s.genres.map((g) => [g.genre.name, g.avg, g.count]), [['Pop', 7, 2], ['Rock', 7, 1]]);
+  assert.deepEqual(s.genres.map((g) => [g.genre.name, g.avg, g.count]), [['Pop', 7, 2]]);
 });
 
 test('gênero favorito de cada membro', () => {

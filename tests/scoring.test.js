@@ -141,4 +141,112 @@ test('buildResult exige todos finalizados e calcula o grupo', async () => {
   assert.deepEqual(Object.keys(res.trackAvgs), ['t1']);
   assert.equal(res.trackAvgs.t1, 3);
   assert.equal(buildResult(tracks, { ...all, c: { ...all.c, status: 'draft' } }, ['a', 'b', 'c']), null);
+  assert.equal(res.favoriteTrack, null);
+  assert.equal(res.leastTrack, null);
+});
+
+test('favoritas: quantas escolher e o que falta', async () => {
+  const { favoriteSlots, missingPicks, picksComplete } = await import('../js/scoring.js');
+  const tracks = ['a', 'b', 'c', 'd', 'e'].map((id) => ({ id })).concat({ id: 'x', excluded: true });
+  assert.equal(favoriteSlots(tracks), 3);
+  assert.equal(favoriteSlots(tracks.slice(0, 3)), 2);
+  assert.equal(favoriteSlots([{ id: 'a' }]), 0);
+  assert.deepEqual(missingPicks({}, tracks), { favorites: true, least: true });
+  assert.equal(picksComplete({ favorites: ['a', 'b', 'c'], leastFavorite: 'e' }, tracks), true);
+  assert.deepEqual(missingPicks({ favorites: ['a', 'a', 'c'], leastFavorite: 'e' }, tracks), { favorites: true, least: false });
+  assert.deepEqual(missingPicks({ favorites: ['a', 'b', 'x'], leastFavorite: 'e' }, tracks), { favorites: true, least: false });
+  assert.deepEqual(missingPicks({ favorites: ['a', 'b', 'c'], leastFavorite: 'a' }, tracks), { favorites: false, least: true });
+  assert.equal(picksComplete({}, [{ id: 'a' }]), true);
+});
+
+test('consenso da mais amada e da menos amada', async () => {
+  const { consensusPicks } = await import('../js/scoring.js');
+  const pick = (favorites, leastFavorite) => ({ favorites, leastFavorite });
+  // b: 2 + 3 + 1 = 6 pontos, a: 3 + 2 = 5. A menos amada 'e' teve 2 votos.
+  assert.deepEqual(consensusPicks([pick(['a', 'b', 'c'], 'e'), pick(['b', 'a', 'd'], 'e'), pick(['c', 'd', 'b'], 'd')]),
+    { favoriteTrack: 'b', leastTrack: 'e' });
+  // Ninguém em comum: sem consenso nos dois.
+  assert.deepEqual(consensusPicks([pick(['a'], 'x'), pick(['b'], 'y'), pick(['c'], 'z')]), { favoriteTrack: null, leastTrack: null });
+  // Empate em pontos: vence a de maior média; com média igual, nenhuma.
+  const tie = [pick(['a', 'b'], null), pick(['b', 'a'], null), pick(['c'], null)];
+  assert.equal(consensusPicks(tie, { a: 4.5, b: 4.2 }).favoriteTrack, 'a');
+  assert.equal(consensusPicks(tie, { a: 4, b: 4 }).favoriteTrack, null);
+  // Avaliações antigas sem escolhas.
+  assert.deepEqual(consensusPicks([{}, {}, {}]), { favoriteTrack: null, leastTrack: null });
+});
+
+test('soma das escolhas por faixa', async () => {
+  const { pickTally } = await import('../js/scoring.js');
+  const t = pickTally([
+    { favorites: ['a', 'b', 'c'], leastFavorite: 'z' },
+    { favorites: ['b', null, 'a'], leastFavorite: 'z' },
+    {},
+  ]);
+  assert.deepEqual(t.pickPoints, { a: 4, b: 5, c: 1 });
+  assert.deepEqual(t.pickVotes, { a: 2, b: 2, c: 1 });
+  assert.deepEqual(t.leastVotes, { z: 2 });
+  assert.deepEqual(pickTally([]), { pickPoints: {}, pickVotes: {}, leastVotes: {} });
+});
+
+test('mais amada precisa de pelo menos 2 membros, mesmo com menos pontos', async () => {
+  const { consensusPicks } = await import('../js/scoring.js');
+  // 'a' tem 3 pontos de um membro só; 'b' soma 2 + 3 = 5 e 'c' soma 1 + 3 = 4, ambas com 2 membros.
+  const r = consensusPicks([{ favorites: ['a', 'b', 'c'] }, { favorites: ['b', 'd', 'e'] }, { favorites: ['c', 'f', 'g'] }]);
+  assert.equal(r.favoriteTrack, 'b');
+  // Os três em 1º lugar.
+  assert.equal(consensusPicks([{ favorites: ['a'] }, { favorites: ['a'] }, { favorites: ['a'] }]).favoriteTrack, 'a');
+  // Só um membro escolheu: sem consenso.
+  assert.equal(consensusPicks([{ favorites: ['a', 'b', 'c'] }, {}, {}]).favoriteTrack, null);
+});
+
+test('empate da mais amada: média desempata, sem média ou média igual fica sem consenso', async () => {
+  const { consensusPicks } = await import('../js/scoring.js');
+  // 'a' e 'b' com 5 pontos cada.
+  const tie = [{ favorites: ['a', 'b'] }, { favorites: ['b', 'a'] }, { favorites: ['c'] }];
+  assert.equal(consensusPicks(tie, { a: 3.9, b: 4.1 }).favoriteTrack, 'b');
+  assert.equal(consensusPicks(tie, { a: 4.1 }).favoriteTrack, 'a');
+  assert.equal(consensusPicks(tie, { a: 4, b: 4 }).favoriteTrack, null);
+  assert.equal(consensusPicks(tie).favoriteTrack, null);
+  // Quem vem logo abaixo com menos pontos não conta como empate.
+  assert.equal(consensusPicks([{ favorites: ['a', 'b'] }, { favorites: ['a', 'b'] }, {}]).favoriteTrack, 'a');
+});
+
+test('menos amada: 2 ou 3 votos iguais, senão sem consenso', async () => {
+  const { consensusPicks } = await import('../js/scoring.js');
+  const least = (...ids) => consensusPicks(ids.map((leastFavorite) => ({ leastFavorite }))).leastTrack;
+  assert.equal(least('x', 'x', 'y'), 'x');
+  assert.equal(least('x', 'x', 'x'), 'x');
+  assert.equal(least('x', 'y', 'z'), null);
+  assert.equal(least('x', null, null), null);
+  assert.equal(least(null, null, null), null);
+});
+
+test('buildResult guarda consenso e pontos para as estatísticas', async () => {
+  const { buildResult } = await import('../js/scoring.js');
+  const tracks = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+  const r = (favorites, leastFavorite) => ({
+    status: 'final', personalFinal: 7, scale: 5, trackScores: { a: 40, b: 30, c: 20, d: 10 }, favorites, leastFavorite,
+  });
+  const res = buildResult(tracks, { u1: r(['a', 'b', 'c'], 'd'), u2: r(['a', 'c', 'b'], 'd'), u3: r(['b', 'a', 'c'], 'c') }, ['u1', 'u2', 'u3']);
+  assert.equal(res.favoriteTrack, 'a');
+  assert.equal(res.leastTrack, 'd');
+  assert.deepEqual(res.pickPoints, { a: 8, b: 6, c: 4 });
+  assert.deepEqual(res.leastVotes, { d: 2, c: 1 });
+});
+
+test('escolhas incompletas ou inválidas', async () => {
+  const { missingPicks, picksComplete } = await import('../js/scoring.js');
+  const tracks = ['a', 'b', 'c', 'd'].map((id) => ({ id })).concat({ id: 'x', excluded: true });
+  // Lugar vazio no meio, faixa que não conta e faixa de outro álbum.
+  assert.equal(missingPicks({ favorites: ['a', null, 'c'], leastFavorite: 'd' }, tracks).favorites, true);
+  assert.equal(missingPicks({ favorites: ['a', 'b', 'c'], leastFavorite: 'x' }, tracks).least, true);
+  assert.equal(missingPicks({ favorites: ['a', 'b', 'zz'], leastFavorite: 'd' }, tracks).favorites, true);
+  // A menos favorita não pode ser uma das favoritas, em nenhum dos lugares.
+  for (const least of ['a', 'b', 'c']) {
+    assert.equal(picksComplete({ favorites: ['a', 'b', 'c'], leastFavorite: least }, tracks), false);
+  }
+  // Álbum de 3 faixas: 2 favoritas e a menos favorita.
+  const short = tracks.slice(0, 3);
+  assert.equal(picksComplete({ favorites: ['a', 'b'], leastFavorite: 'c' }, short), true);
+  assert.equal(picksComplete({ favorites: ['a', 'b'], leastFavorite: null }, short), false);
 });

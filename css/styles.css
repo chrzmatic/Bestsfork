@@ -183,8 +183,10 @@ body.no-tabs .tabbar { display: none; }
   font-size: 17px;
 }
 textarea.input { min-height: 140px; resize: vertical; }
-/* Data e hora têm largura mínima própria e vazariam da coluna. */
-.input[type=date], .input[type=time] { min-width: 0; }
+/* Data e hora têm largura mínima própria e vazariam da coluna. No iPhone só respeitam a largura sem a aparência nativa. */
+.input[type=date], .input[type=time] { min-width: 0; display: block; -webkit-appearance: none; appearance: none; text-align: left; }
+.input::-webkit-date-and-time-value { text-align: left; }
+.row .field { grid-template-columns: minmax(0, 1fr); }
 .input:focus { outline: none; border-color: var(--accent); }
 .input.invalid { border-color: var(--danger); }
 .hint { font-size: 14px; color: var(--ink-2); }
@@ -404,6 +406,21 @@ textarea.input { min-height: 140px; resize: vertical; }
 .result-cell strong { display: block; font-size: 22px; font-stretch: 80%; }
 .result-cell small { color: var(--ink-2); font-size: 13px; }
 .result-date { margin-top: 12px; text-align: center; }
+/* Mais e menos amada, antes do resultado */
+.picks-summary { display: grid; gap: 8px; margin-top: 20px; }
+.pick-line { display: flex; align-items: baseline; gap: 10px; padding: 10px 14px; background: var(--surface-2); border-radius: var(--radius-s); }
+.pick-line > span:first-child { flex: none; width: 104px; white-space: nowrap; }
+.pick-line strong { flex: 1; min-width: 0; }
+.pick-avg { color: var(--ink-2); font-size: 14px; white-space: nowrap; }
+/* Bloco do membro que abre as escolhas dele */
+button.result-cell { font: inherit; color: inherit; border: 0; cursor: pointer; width: 100%; }
+.result-cell[aria-expanded='true'] { box-shadow: inset 0 0 0 2px var(--accent); }
+.member-picks { margin-top: 10px; padding: 12px 14px; background: var(--surface-2); border-radius: var(--radius-s); }
+.member-picks ol { margin: 0; padding-left: 20px; }
+.member-picks p { margin: 8px 0 0; }
+.member-picks > :first-child { margin-top: 0; }
+.member-comment { padding-left: 10px; border-left: 3px solid var(--accent); color: var(--ink-2); overflow-wrap: anywhere; }
+textarea.input.comment-input { min-height: 90px; }
 
 /* Normalização */
 .duel { display: grid; gap: 12px; margin: 20px 0; }

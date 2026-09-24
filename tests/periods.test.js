@@ -18,7 +18,7 @@ test('álbum do fluxo normal nasce em New, com a tag oculta no card e visível n
   assert.equal(albumPeriod(album), 'new');
   assert.equal(periodWarning(album), null);
   assert.deepEqual(cardBadges(album, baseTags(), displaySettings()), []);
-  assert.deepEqual(pageBadges(album, baseTags(), displaySettings()), [
+  assert.deepEqual(pageBadges(album, baseTags()), [
     { kind: 'tag', id: NEW_TAG, label: 'New Testamento', hiddenOnCards: true },
   ]);
 });
@@ -79,7 +79,7 @@ test('ocultar e reexibir some e volta do card, mas fica na página', () => {
   const album = { tags: ['fav', OLD_TAG] };
   tags.fav.showOnCards = false;
   assert.deepEqual(labels(cardBadges(album, tags, displaySettings())), ['Old Testamento']);
-  assert.deepEqual(pageBadges(album, tags, displaySettings()).map((b) => [b.label, b.hiddenOnCards]),
+  assert.deepEqual(pageBadges(album, tags).map((b) => [b.label, b.hiddenOnCards]),
     [['Favoritos', true], ['Old Testamento', false]]);
   tags.fav.showOnCards = true;
   assert.deepEqual(labels(cardBadges(album, tags, displaySettings())), ['Favoritos', 'Old Testamento']);
@@ -92,7 +92,7 @@ test('renomear tag muda o rótulo e mantém a visibilidade', () => {
   tags.fav = { id: 'fav', name: 'Preferidos', showOnCards: false };
   const album = { tags: ['fav'] };
   assert.deepEqual(cardBadges(album, tags, displaySettings()), []);
-  assert.deepEqual(pageBadges(album, tags, displaySettings())[0], { kind: 'tag', id: 'fav', label: 'Preferidos', hiddenOnCards: true });
+  assert.deepEqual(pageBadges(album, tags)[0], { kind: 'tag', id: 'fav', label: 'Preferidos', hiddenOnCards: true });
   tags.fav.showOnCards = true;
   tags.fav.name = 'Top';
   assert.deepEqual(labels(cardBadges(album, tags, displaySettings())), ['Top']);
@@ -111,7 +111,7 @@ test('tag apagada no álbum é ignorada sem erro', () => {
   const album = { retro: true, tags: ['apagada', OLD_TAG] };
   const tags = baseTags();
   assert.deepEqual(labels(cardBadges(album, tags, displaySettings())), ['Old Testamento']);
-  assert.deepEqual(labels(pageBadges(album, tags, displaySettings())), ['Retroativo', 'Old Testamento']);
+  assert.deepEqual(labels(pageBadges(album, tags)), ['Old Testamento']);
   assert.deepEqual(cardBadges(album, undefined, undefined), []);
   assert.equal(albumPeriod(album), 'old');
 });
@@ -124,13 +124,11 @@ test('dados antigos sem campos assumem os padrões', () => {
   assert.equal(tagShownOnCards(undefined), true);
 });
 
-test('selo Retroativo: no card só com showRetroBadge, na página sempre', () => {
+test('selo Retroativo: no card só com showRetroBadge, na página nunca', () => {
   const album = { retro: true, tags: [] };
   assert.deepEqual(cardBadges(album, baseTags(), displaySettings()), []);
   assert.deepEqual(labels(cardBadges(album, baseTags(), displaySettings({ showRetroBadge: true }))), ['Retroativo']);
-  assert.deepEqual(pageBadges(album, baseTags(), displaySettings()), [{ kind: 'retro', label: 'Retroativo', hiddenOnCards: true }]);
-  assert.deepEqual(pageBadges(album, baseTags(), displaySettings({ showRetroBadge: true })), [{ kind: 'retro', label: 'Retroativo', hiddenOnCards: false }]);
-  assert.deepEqual(pageBadges({ retro: false, tags: [] }, baseTags(), displaySettings({ showRetroBadge: true })), []);
+  assert.deepEqual(pageBadges(album, baseTags()), []);
 });
 
 test('isSystemTag', () => {

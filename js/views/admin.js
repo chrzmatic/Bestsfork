@@ -155,7 +155,7 @@ export async function render(root) {
         await db.setDisplay({ showRetroBadge: on });
         toast(on ? 'Selo Retroativo aparece nos cards' : 'Selo Retroativo oculto nos cards');
       })),
-      h('p', { class: 'hint' }, 'Vale para os três. Oculto nos cards, continua aparecendo na página do álbum.')),
+      h('p', { class: 'hint' }, 'Vale para os três. Na página do álbum ele não aparece.')),
     h('div', { class: 'panel' },
       h('h2', null, 'Cores das notas'),
       h('p', { class: 'hint', style: 'margin-bottom: 10px' }, 'Cor do adesivo da nota do grupo conforme a média. Vale para os três, em todas as telas.'),

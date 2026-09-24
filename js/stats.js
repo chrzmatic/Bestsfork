@@ -43,6 +43,34 @@ export function evalDateValue(dateText, timeText) {
   return { value, year: parsed.date.getFullYear(), error: null };
 }
 
+// Notas das listas de faixas, de 0 a 5: 4 pontos vêm da média do grupo (80%) e 1 das escolhas
+// feitas nas avaliações (20%). A parte das escolhas é a fração do máximo possível com esses membros.
+
+// Mais queridas: cada membro dá até 3 pontos a uma faixa (1º lugar), então o máximo é 3 por membro.
+export function lovedScore(avg, pickPoints, members) {
+  const picks = members > 0 ? Math.min(pickPoints / (3 * members), 1) : 0;
+  return avg * 0.8 + picks;
+}
+
+// Menos queridas, o espelho: o quanto a média ficou abaixo de 5 e quantos a marcaram como menos favorita.
+export function rejectionScore(avg, leastVotes, members) {
+  const picks = members > 0 ? Math.min(leastVotes / members, 1) : 0;
+  return (5 - avg) * 0.8 + picks;
+}
+
+// Avaliação em grupo: 24 horas para todos enviarem, contadas da criação do álbum.
+export const EVAL_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+// Passou do prazo sem resultado. Álbuns criados antes do prazo existir não têm `expiresAt` e nunca vencem.
+export function isExpired(album, result, now = Date.now()) {
+  return !album.retro && !result && album.expiresAt instanceof Date && album.expiresAt.getTime() <= now;
+}
+
+// A avaliação em grupo ainda aberta, se houver. Só pode existir uma por vez.
+export function openEvaluation(albums, results, now = Date.now()) {
+  return albums.find((a) => !a.retro && !results[a.id] && !isExpired(a, results[a.id], now)) || null;
+}
+
 // Álbum não retroativo com o resultado mais recente. Sem data conta como recém-concluído.
 export function latestEvaluatedId(albums, results) {
   let best = null;
@@ -103,17 +131,30 @@ export function computeStats(data, filters = DEFAULT_FILTERS) {
   const bestAlbums = [...scored].sort((a, b) => b.score - a.score || byTitle(a, b)).slice(0, 10);
   const worstAlbums = [...scored].sort((a, b) => a.score - b.score || byTitle(a, b)).slice(0, 10);
 
-  const topTracks = [];
+  // Faixas das avaliações reais (retroativos não têm nota por faixa). Resultados antigos, sem
+  // escolhas guardadas, contam só pela média. Só entram nas menos queridas as faixas que alguém
+  // marcou como menos favorita e que não estejam nas mais queridas.
+  const byTrack = (a, b) => byTitle(a, b) || (a.track.title || '').localeCompare(b.track.title || '', 'pt-BR');
+  const trackRows = [];
   for (const album of albums) {
     if (album.retro) continue;
-    const avgs = results[album.id].trackAvgs || {};
+    const result = results[album.id];
+    const avgs = result.trackAvgs || {};
     for (const track of album.tracks || []) {
       if (track.excluded || !isNum(avgs[track.id])) continue;
-      topTracks.push({ album, track, avg: avgs[track.id] });
+      const avg = avgs[track.id];
+      const least = result.leastVotes?.[track.id] || 0;
+      trackRows.push({
+        album, track, avg, least,
+        score: lovedScore(avg, result.pickPoints?.[track.id] || 0, memberUids.length),
+        rejection: rejectionScore(avg, least, memberUids.length),
+      });
     }
   }
-  topTracks.sort((a, b) => b.avg - a.avg || byTitle(a, b) || (a.track.title || '').localeCompare(b.track.title || '', 'pt-BR'));
-  topTracks.splice(20);
+  const topTracks = [...trackRows].sort((a, b) => b.score - a.score || byTrack(a, b)).slice(0, 20);
+  const loved = new Set(topTracks);
+  const leastTracks = trackRows.filter((x) => x.least > 0 && !loved.has(x))
+    .sort((a, b) => b.rejection - a.rejection || byTrack(a, b)).slice(0, 10);
 
   const perArtist = new Map();
   for (const x of scored) {
@@ -135,6 +176,7 @@ export function computeStats(data, filters = DEFAULT_FILTERS) {
     perGenre.set(genre.id, list);
   }
   const genres = [...perGenre.entries()]
+    .filter(([, list]) => list.length >= 2)
     .map(([id, list]) => ({ genre: genresById.get(id), avg: mean(list), count: list.length }))
     .sort(byGenre);
 
@@ -188,5 +230,5 @@ export function computeStats(data, filters = DEFAULT_FILTERS) {
     retro: all.filter((a) => a.retro && results[a.id] && passesGroup(a, f) && yearOk(a)).length,
   };
 
-  return { bestAlbums, worstAlbums, topTracks, topArtists, genres, members, strictest, divergences, totals };
+  return { bestAlbums, worstAlbums, topTracks, leastTracks, topArtists, genres, members, strictest, divergences, totals };
 }
