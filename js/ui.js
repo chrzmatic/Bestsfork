@@ -42,8 +42,9 @@ function append(el, children) {
 
 const ICONS = {
   albums: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/>',
-  artists: '<path d="M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z"/><path d="M6 11a6 6 0 0 0 12 0M12 17v4M9 21h6"/>',
+  artists: '<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/>',
   stats: '<path d="M5 20V11M12 20V4M19 20v-6"/>',
+  social: '<path d="M20 11.5a8 8 0 0 1-11.7 7.1L4 20l1.3-4A8 8 0 1 1 20 11.5z"/>',
   profile: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
   back: '<path d="M15 5l-7 7 7 7"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
@@ -249,6 +250,13 @@ export function friendlyError(err) {
 const dateFmt = new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' });
 export function formatDate(d) {
   return d instanceof Date ? dateFmt.format(d) : '';
+}
+
+const dateTimeFmt = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeStyle: 'short' });
+const longDateFmt = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' });
+export function formatDateTime(d, { time = true } = {}) {
+  if (!(d instanceof Date)) return '';
+  return (time ? dateTimeFmt : longDateFmt).format(d);
 }
 
 export function formatLength(ms) {

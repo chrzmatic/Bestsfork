@@ -6,6 +6,7 @@ import { actingAdmin, session } from '../state.js';
 import { navigate } from '../app.js';
 import { trackEditor } from './track-editor.js';
 import { parseFinal } from './album-new.js';
+import { evalDateValue } from '../stats.js';
 import { imageToVariants } from '../photo.js';
 import { pageCover } from '../images.js';
 
@@ -78,6 +79,10 @@ export async function render(root, [albumId]) {
   drawTags();
 
   const evalYear = h('input', { class: 'input', inputmode: 'numeric', value: album.evaluatedYear ?? '' });
+  const [savedDate = '', savedTime = ''] = (album.evaluatedAt || '').split('T');
+  const evalDate = h('input', { class: 'input', type: 'date', value: savedDate });
+  const evalTime = h('input', { class: 'input', type: 'time', value: savedTime });
+  evalDate.addEventListener('change', () => { if (evalDate.value) evalYear.value = evalDate.value.slice(0, 4); });
   const groupScore = h('input', { class: 'input', inputmode: 'decimal', value: result?.groupScore != null ? formatScore(result.groupScore, 2) : '' });
   const memberInputs = session.members.map((u) => ({
     uid: u,
@@ -105,6 +110,9 @@ export async function render(root, [albumId]) {
       album.retro && h('div', { class: 'panel' },
         h('h2', null, 'Registro retroativo'),
         h('label', { class: 'field' }, h('span', null, 'Ano em que foi avaliado (opcional)'), evalYear),
+        h('div', { class: 'row' },
+          h('label', { class: 'field grow' }, h('span', null, 'Data (opcional)'), evalDate),
+          h('label', { class: 'field grow' }, h('span', null, 'Hora (opcional)'), evalTime)),
         h('label', { class: 'field' }, h('span', null, 'Nota do grupo (0 a 10)'), groupScore),
         memberInputs.map(({ uid, input }) => h('label', { class: 'field' }, h('span', null, `Nota final de ${userName(users[uid])}`), input)),
       ),
@@ -139,7 +147,10 @@ export async function render(root, [albumId]) {
     if (album.retro) {
       const ey = evalYear.value.trim() ? Number(evalYear.value) : null;
       if (ey != null && !Number.isInteger(ey)) { error.textContent = 'Ano de avaliação inválido.'; return; }
-      patch.evaluatedYear = ey;
+      const when = evalDateValue(evalDate.value, evalTime.value);
+      if (when.error) { error.textContent = when.error; return; }
+      patch.evaluatedYear = when.value ? when.year : ey;
+      patch.evaluatedAt = when.value;
       const g = parseFinal(groupScore.value);
       if (g.error || g.value == null) { error.textContent = g.error || 'Digite a nota do grupo.'; return; }
       const memberScores = {};

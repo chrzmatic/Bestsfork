@@ -83,7 +83,7 @@ export async function render(root) {
       session.adminMode = on;
       setPref('adminMode', on);
       adminLink.hidden = !on;
-      toast(on ? 'Modo admin ligado. Você vê as notas de todos.' : 'Modo admin desligado');
+      toast(on ? 'Modo admin ligado' : 'Modo admin desligado');
     }),
     h('p', { class: 'hint' }, 'Com o modo ligado você edita e apaga álbuns, vê e ajusta avaliações de todos e cria registros retroativos.'),
     adminLink,

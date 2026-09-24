@@ -1,5 +1,5 @@
 // A versão muda sozinha a cada commit (tools/bump-version.mjs), e os aparelhos baixam os arquivos novos.
-const VERSION = 'v1.0.13';
+const VERSION = 'v1.0.14';
 const CACHE = `bestsfork-${VERSION}`;
 
 const FILES = [
@@ -44,6 +44,7 @@ const FILES = [
   'js/views/artists.js',
   'js/views/artist.js',
   'js/views/stats.js',
+  'js/views/social.js',
   'js/views/profile.js',
   'js/views/admin.js',
   'js/views/track-editor.js',

@@ -1,6 +1,6 @@
 import { h, icon, cover, sticker, badge, badgeList, avatars, screenHead, searchBox, emptyState, withBusy, toast, add, put } from '../ui.js';
 import * as db from '../db.js';
-import { albumGroupScore } from '../stats.js';
+import { albumGroupScore, latestEvaluatedId } from '../stats.js';
 import { normalizeKey } from '../artists.js';
 import { listCover } from '../images.js';
 import { sortRecent, moveKey } from '../ordering.js';
@@ -47,6 +47,7 @@ export async function render(root) {
   let term = '';
   let reordering = false;
   let shownNow = [];
+  let latestId = null;
   const list = h('ul');
   const count = h('span', { class: 'muted small' });
 
@@ -71,7 +72,7 @@ export async function render(root) {
   function statusBadge(a) {
     if (a.retro) return null;
     const mine = (progress[a.id] || {})[session.uid];
-    if (mine === 'final') return badge('Você finalizou', 'final');
+    if (mine === 'final') return badge('Você avaliou', 'final');
     if (mine === 'draft') return badge('Rascunho', 'draft');
     return badge('Não começou');
   }
@@ -79,6 +80,8 @@ export async function render(root) {
   function listItem(a) {
     const p = progress[a.id] || {};
     const done = members.filter((u) => p[u] === 'final');
+    // Nos álbuns já concluídos, o selo e os avatares ficam só no avaliado por último.
+    const showStatus = !results[a.id] || a.id === latestId;
     return h('li', { class: 'album-item' },
       h('a', { href: `#/album/${a.id}` },
         cover(listCover(a), ''),
@@ -86,7 +89,7 @@ export async function render(root) {
           h('h3', null, a.title),
           h('div', { class: 'artist' }, artistName(a)),
           a.year && h('div', { class: 'year' }, a.year),
-          h('div', { class: 'meta' }, statusBadge(a), metaBadges(a), !a.retro && done.length > 0 && avatars(done.map((u) => users[u]))),
+          h('div', { class: 'meta' }, showStatus && statusBadge(a), metaBadges(a), showStatus && !a.retro && done.length > 0 && avatars(done.map((u) => users[u]))),
         ),
         scoreSticker(a),
       ),
@@ -120,8 +123,9 @@ export async function render(root) {
   function gridItem(a, compact) {
     const art = h('div', { class: 'grid-cover' }, cover(listCover(a), ''));
     const badges = metaBadges(a);
+    // A nota fica sobre a capa nas duas grades, liberando a largura toda para o texto.
+    add(art, scoreSticker(a, true));
     if (compact) {
-      add(art, scoreSticker(a, true));
       if (badges.length) add(art, h('div', { class: 'grid-badges' }, badges));
       return h('li', null, h('a', { href: `#/album/${a.id}`, 'aria-label': `${a.title}, ${artistName(a)}` }, art));
     }
@@ -129,10 +133,9 @@ export async function render(root) {
       h('a', { href: `#/album/${a.id}` },
         art,
         h('div', { class: 'grid-info' },
-          h('div', { style: 'min-width: 0' },
-            h('h3', { class: 'ellipsis' }, a.title),
-            h('div', { class: 'artist ellipsis' }, artistName(a))),
-          scoreSticker(a, true)),
+          h('h3', null, a.title),
+          h('div', { class: 'artist ellipsis' }, artistName(a)),
+          a.year && h('div', { class: 'year' }, a.year)),
         badges.length > 0 && h('div', { class: 'meta' }, badges),
       ),
     );
@@ -157,6 +160,7 @@ export async function render(root) {
       shown = recent;
     }
     shownNow = shown;
+    latestId = latestEvaluatedId(albums, results);
     const canReorder = admin && sort === 'recent' && !term;
     if (!canReorder) reordering = false;
     reorderBtn.hidden = !canReorder;
