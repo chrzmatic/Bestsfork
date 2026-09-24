@@ -23,6 +23,39 @@ export function albumEvalYear(album, result) {
   return Number(saoPauloYear.format(d));
 }
 
+// Data opcional dos retroativos, gravada como 'AAAA-MM-DD' ou 'AAAA-MM-DDTHH:MM', sem fuso.
+export function retroEvalDate(album) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?$/.exec(album?.evaluatedAt || '');
+  if (!m) return null;
+  const [, y, mo, d, hh, mm] = m;
+  const date = new Date(Number(y), Number(mo) - 1, Number(d), Number(hh ?? 0), Number(mm ?? 0));
+  return Number.isNaN(date.getTime()) ? null : { date, hasTime: hh != null };
+}
+
+// Junta os campos de data e hora do formulário no formato de retroEvalDate.
+export function evalDateValue(dateText, timeText) {
+  const d = String(dateText ?? '').trim();
+  const t = String(timeText ?? '').trim();
+  if (!d) return t ? { value: null, year: null, error: 'Preencha a data para usar a hora.' } : { value: null, year: null, error: null };
+  const value = t ? `${d}T${t.slice(0, 5)}` : d;
+  const parsed = retroEvalDate({ evaluatedAt: value });
+  if (!parsed) return { value: null, year: null, error: 'Data de avaliação inválida.' };
+  return { value, year: parsed.date.getFullYear(), error: null };
+}
+
+// Álbum não retroativo com o resultado mais recente. Sem data conta como recém-concluído.
+export function latestEvaluatedId(albums, results) {
+  let best = null;
+  let bestTime = -Infinity;
+  for (const a of albums) {
+    const r = results[a.id];
+    if (a.retro || !r || r.retro) continue;
+    const t = r.completedAt instanceof Date ? r.completedAt.getTime() : Infinity;
+    if (t > bestTime) { best = a.id; bestTime = t; }
+  }
+  return best;
+}
+
 // Período, gênero e tags: o que vale para os totais também.
 function passesGroup(album, f) {
   if (!matchesPeriod(album, f.period)) return false;

@@ -8,6 +8,7 @@ import { navigate } from '../app.js';
 import { trackEditor, tracksFromLines } from './track-editor.js';
 import { initialTags } from '../periods.js';
 import { autoGenre } from '../genre-lookup.js';
+import { evalDateValue } from '../stats.js';
 
 // Nota final de 0 a 10 com até 2 casas, como digitada pelo admin.
 export function parseFinal(text) {
@@ -186,6 +187,8 @@ export async function render(root) {
 
     // Campos do retroativo
     const evalYear = h('input', { class: 'input', inputmode: 'numeric' });
+    const evalDate = h('input', { class: 'input', type: 'date' });
+    const evalTime = h('input', { class: 'input', type: 'time' });
     const groupScore = h('input', { class: 'input', inputmode: 'decimal', placeholder: 'Ex.: 7,85' });
     const memberInputs = session.members.map((u) => ({ uid: u, input: h('input', { class: 'input', inputmode: 'decimal', placeholder: 'Opcional' }) }));
     const tagChips = h('div', { class: 'chips', style: 'flex-wrap: wrap' });
@@ -199,6 +202,12 @@ export async function render(root) {
       autoTags = tagsForYear(tags, y).filter((id) => !selectedTags.has(id));
       for (const id of autoTags) selectedTags.add(id);
       drawTags();
+    });
+    // A data preenche o ano, que por sua vez marca as tags do período.
+    evalDate.addEventListener('change', () => {
+      if (!evalDate.value) return;
+      evalYear.value = evalDate.value.slice(0, 4);
+      evalYear.dispatchEvent(new Event('input'));
     });
     drawTags();
 
@@ -215,6 +224,9 @@ export async function render(root) {
       retro && h('div', { class: 'panel' },
         h('h2', null, 'Registro retroativo'),
         h('label', { class: 'field' }, h('span', null, 'Ano em que foi avaliado (opcional)'), evalYear),
+        h('div', { class: 'row' },
+          h('label', { class: 'field grow' }, h('span', null, 'Data (opcional)'), evalDate),
+          h('label', { class: 'field grow' }, h('span', null, 'Hora (opcional)'), evalTime)),
         h('label', { class: 'field' }, h('span', null, 'Nota do grupo (0 a 10)'), groupScore),
         memberInputs.map(({ uid, input }) => h('label', { class: 'field' }, h('span', null, `Nota final de ${userName(users[uid])}`), input)),
       ),
@@ -243,9 +255,13 @@ export async function render(root) {
 
       let result = null;
       let evaluatedYear = null;
+      let evaluatedAt = null;
       if (retro) {
         evaluatedYear = evalYear.value.trim() ? Number(evalYear.value) : null;
         if (evaluatedYear != null && !Number.isInteger(evaluatedYear)) { error.textContent = 'Ano de avaliação inválido.'; return; }
+        const when = evalDateValue(evalDate.value, evalTime.value);
+        if (when.error) { error.textContent = when.error; return; }
+        if (when.value) { evaluatedAt = when.value; evaluatedYear = when.year; }
         const g = parseFinal(groupScore.value);
         if (g.error || g.value == null) { error.textContent = g.error || 'Digite a nota do grupo.'; return; }
         const memberScores = {};
@@ -281,6 +297,7 @@ export async function render(root) {
             tracks,
             retro,
             evaluatedYear,
+            evaluatedAt,
             tags: [...selectedTags],
           },
           artistName: a,

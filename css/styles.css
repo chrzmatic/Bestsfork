@@ -114,7 +114,7 @@ body.no-tabs #app { padding-bottom: calc(env(safe-area-inset-bottom) + 24px); }
   left: 0; right: 0; bottom: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -183,6 +183,8 @@ body.no-tabs .tabbar { display: none; }
   font-size: 17px;
 }
 textarea.input { min-height: 140px; resize: vertical; }
+/* Data e hora têm largura mínima própria e vazariam da coluna. */
+.input[type=date], .input[type=time] { min-width: 0; }
 .input:focus { outline: none; border-color: var(--accent); }
 .input.invalid { border-color: var(--danger); }
 .hint { font-size: 14px; color: var(--ink-2); }
@@ -313,13 +315,14 @@ textarea.input { min-height: 140px; resize: vertical; }
 .album-grid a { display: block; color: inherit; text-decoration: none; }
 .grid-cover { position: relative; }
 .grid-cover .cover { border-radius: 6px; }
-.grid3 .grid-cover .sticker { position: absolute; right: 4px; bottom: 4px; }
+.grid-cover .sticker { position: absolute; right: 4px; bottom: 4px; }
+.grid2 .grid-cover .sticker { --size: 50px; right: 6px; bottom: 6px; }
 .grid-badges { position: absolute; left: 4px; top: 4px; right: 4px; display: flex; flex-wrap: wrap; gap: 3px; }
 .grid-badges .badge { font-size: 10.5px; padding: 1px 6px; background: rgba(20, 22, 30, 0.72); color: #fff; outline: none; }
-.grid-info { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-.grid-info > div { flex: 1; }
-.grid-info h3 { font-size: 15px; }
+.grid-info { margin-top: 8px; min-width: 0; }
+.grid-info h3 { font-size: 15px; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
 .grid-info .artist { font-size: 13px; color: var(--ink-2); }
+.grid-info .year { font-size: 13px; color: var(--ink-3); }
 .album-grid .meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .avatar.artist { background: var(--surface-2); color: var(--ink-2); }
 .list-tools .segmented { flex: 1; display: flex; }
@@ -400,6 +403,7 @@ textarea.input { min-height: 140px; resize: vertical; }
 .result-cell .avatar { margin: 0 auto 6px; }
 .result-cell strong { display: block; font-size: 22px; font-stretch: 80%; }
 .result-cell small { color: var(--ink-2); font-size: 13px; }
+.result-date { margin-top: 12px; text-align: center; }
 
 /* Normalização */
 .duel { display: grid; gap: 12px; margin: 20px 0; }
@@ -497,7 +501,6 @@ dialog.sheet .actions { display: grid; gap: 10px; }
 .band-range .input { min-height: 44px; padding: 8px 10px; }
 .color-input { width: 48px; height: 44px; padding: 2px; border: 1.5px solid var(--line); border-radius: var(--radius-s); background: var(--surface); cursor: pointer; }
 .band-row > .small { align-self: center; }
-.band-preview { display: flex; gap: 10px; margin-top: 12px; }
 .import-list { list-style: none; margin: 12px 0 0; padding: 0; }
 .import-row { margin-bottom: 12px; }
 .import-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 10px; margin-top: 12px; }

@@ -1,7 +1,7 @@
 import {
-  h, screenHead, emptyState, sheet, withBusy, toast, confirmDialog, promptDialog, deliverFile, switchField, badge, sticker, icon, add, put,
+  h, screenHead, emptyState, sheet, withBusy, toast, confirmDialog, promptDialog, deliverFile, switchField, badge, icon, add, put,
 } from '../ui.js';
-import { DEFAULT_SCORE_BANDS, normalizeBands, bandRanges, scoreColors } from '../score-colors.js';
+import { DEFAULT_SCORE_BANDS, normalizeBands, bandRanges } from '../score-colors.js';
 import * as db from '../db.js';
 import { backupJson, fileName } from '../export.js';
 import { isSystemTag, tagShownOnCards, displaySettings } from '../periods.js';
@@ -108,7 +108,7 @@ export async function render(root) {
       });
       const color = h('input', {
         type: 'color', class: 'color-input', value: b.color, 'aria-label': `Cor da faixa ${i + 1}`,
-        oninput: (e) => { bands[i] = { ...b, color: e.target.value }; preview.replaceWith(preview = previewRow()); },
+        oninput: (e) => { bands[i] = { ...b, color: e.target.value }; },
       });
       return h('div', { class: 'band-row' },
         h('div', { class: 'band-range' }, h('span', { class: 'small muted' }, 'A partir de'), from),
@@ -117,18 +117,8 @@ export async function render(root) {
         i > 0 ? h('button', { class: 'icon-btn', type: 'button', 'aria-label': 'Remover faixa',
           onclick: () => { bands.splice(i, 1); bands = normalizeBands(bands); drawBands(); } }, icon('trash')) : h('span'),
       );
-    }), preview = previewRow());
-  };
-  let preview;
-  // Prévia com as faixas em edição; o app só muda ao salvar.
-  const previewRow = () => h('div', { class: 'band-preview' },
-    bandRanges(bands).map((r) => {
-      const el = sticker((r.from + r.to) / 2, { small: true });
-      const c = scoreColors((r.from + r.to) / 2, bands);
-      el.style.background = c.bg;
-      el.style.color = c.ink;
-      return el;
     }));
+  };
   drawBands();
   const addBand = h('button', { class: 'btn small secondary', type: 'button', onclick: () => {
     const last = bands[bands.length - 1];

@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { computeStats, filterAlbums, albumEvalYear, albumGroupScore } from '../js/stats.js';
+import {
+  computeStats, filterAlbums, albumEvalYear, albumGroupScore, latestEvaluatedId, retroEvalDate, evalDateValue,
+} from '../js/stats.js';
 
 const U = ['u1', 'u2', 'u3'];
 
@@ -42,6 +44,30 @@ test('ano de avaliação', () => {
   const d = sample();
   assert.equal(albumEvalYear(d.albums[0], d.results.a1), 2025);
   assert.equal(albumEvalYear(d.albums[2], d.results.a3), 2022);
+});
+
+test('avaliação mais recente ignora retroativos e álbuns sem resultado', () => {
+  const d = sample();
+  assert.equal(latestEvaluatedId(d.albums, d.results), 'a2');
+  assert.equal(latestEvaluatedId(d.albums, { ...d.results, a4: { memberScores: {}, completedAt: null } }), 'a4');
+  assert.equal(latestEvaluatedId(d.albums.filter((a) => a.retro), d.results), null);
+});
+
+test('data opcional dos retroativos', () => {
+  const comHora = retroEvalDate({ evaluatedAt: '2022-03-15T21:30' });
+  assert.equal(comHora.hasTime, true);
+  assert.equal(comHora.date.getHours(), 21);
+  assert.equal(retroEvalDate({ evaluatedAt: '2022-03-15' }).hasTime, false);
+  assert.equal(retroEvalDate({ evaluatedAt: null }), null);
+  assert.equal(retroEvalDate({}), null);
+});
+
+test('campos de data e hora do registro retroativo', () => {
+  assert.deepEqual(evalDateValue('', ''), { value: null, year: null, error: null });
+  assert.deepEqual(evalDateValue('2022-03-15', ''), { value: '2022-03-15', year: 2022, error: null });
+  assert.deepEqual(evalDateValue('2022-03-15', '21:30'), { value: '2022-03-15T21:30', year: 2022, error: null });
+  assert.equal(evalDateValue('', '21:30').error, 'Preencha a data para usar a hora.');
+  assert.equal(evalDateValue('15/03/2022', '').error, 'Data de avaliação inválida.');
 });
 
 test('melhores e piores álbuns', () => {

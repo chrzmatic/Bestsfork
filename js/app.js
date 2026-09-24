@@ -5,10 +5,12 @@ import { session, getPref, applyTheme, setAppearance } from './state.js';
 const app = document.getElementById('app');
 const tabbar = document.querySelector('.tabbar');
 
+// Home fica no meio da barra.
 const TABS = [
-  { id: 'albums', label: 'Álbuns', icon: 'albums', href: '#/albums' },
   { id: 'artists', label: 'Artistas', icon: 'artists', href: '#/artists' },
   { id: 'stats', label: 'Estatísticas', icon: 'stats', href: '#/stats' },
+  { id: 'albums', label: 'Home', icon: 'albums', href: '#/albums' },
+  { id: 'social', label: 'Social', icon: 'social', href: '#/social' },
   { id: 'profile', label: 'Perfil', icon: 'profile', href: '#/profile' },
 ];
 
@@ -22,6 +24,7 @@ const ROUTES = [
   [/^artists$/, 'artists', () => import('./views/artists.js')],
   [/^artist\/([^/]+)$/, 'artists', () => import('./views/artist.js')],
   [/^stats$/, 'stats', () => import('./views/stats.js')],
+  [/^social$/, 'social', () => import('./views/social.js')],
   [/^profile$/, 'profile', () => import('./views/profile.js')],
   [/^admin$/, 'profile', () => import('./views/admin.js')],
   [/^admin\/import$/, 'profile', () => import('./views/import.js')],

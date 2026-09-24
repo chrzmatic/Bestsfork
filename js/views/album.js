@@ -1,10 +1,10 @@
-import { h, icon, cover, sticker, badge, badgeList, avatar, userName, toast, confirmDialog, sheet, withBusy, formatLength, debounce, emptyState, add } from '../ui.js';
+import { h, icon, cover, sticker, badge, badgeList, avatar, userName, toast, confirmDialog, sheet, withBusy, formatDateTime, formatLength, debounce, emptyState, add } from '../ui.js';
 import * as db from '../db.js';
 import {
   maxFor, countedTracks, missingTracks, isComplete, trackAverage5, album5, personalFinal,
   convertScale, conversionLosesPrecision, parseScore, formatTenths, formatScore,
 } from '../scoring.js';
-import { albumGroupScore } from '../stats.js';
+import { albumGroupScore, retroEvalDate } from '../stats.js';
 import { pageCover } from '../images.js';
 import { setAppearance } from '../state.js';
 import { pageBadges, displaySettings, periodWarning, PERIOD_WARNINGS } from '../periods.js';
@@ -120,7 +120,7 @@ export async function render(root, [albumId]) {
   function membersRow() {
     return h('div', { class: 'members-row' }, members.map((u) => {
       const st = progress[u];
-      const label = st === 'final' ? 'finalizou' : st === 'draft' ? 'avaliando' : 'não começou';
+      const label = st === 'final' ? 'avaliou' : st === 'draft' ? 'avaliando' : 'não começou';
       return h('div', { class: `member-chip${st === 'final' ? ' done' : ''}` },
         avatar(users[u], 'md'),
         h('div', null, h('div', null, u === session.uid ? 'Você' : userName(users[u])), h('div', { class: 'state small' }, label)),
@@ -137,6 +137,8 @@ export async function render(root, [albumId]) {
         h('div', { class: 'result-grid' }, withScore.map((u) => h('div', { class: 'result-cell' },
           avatar(users[u], 'md'), h('strong', null, formatScore(memberScores[u])), h('small', null, userName(users[u]))))));
     }
+    const when = retroEvalDate(album);
+    if (when) add(box, h('p', { class: 'hint result-date' }, `Avaliado em ${formatDateTime(when.date, { time: when.hasTime })}`));
     if (album.tracks?.length) {
       add(box, h('div', { class: 'section' }, h('h2', null, 'Faixas')),
         trackList(album.tracks, (t) => h('li', { class: `track${t.excluded ? ' excluded' : ''}` },
@@ -390,6 +392,8 @@ export async function render(root, [albumId]) {
           members.map((u) => h('div', { class: 'result-cell' }, avatar(users[u], 'md'),
             h('strong', null, formatScore(result.memberScores[u])), h('small', null, userName(users[u])))),
         ),
+        // Logo após o último envio o resultado ainda vem sem data; ela aparece ao abrir de novo.
+        result.completedAt instanceof Date && h('p', { class: 'hint result-date' }, `Avaliado em ${formatDateTime(result.completedAt)}`),
       );
     }
     if (mine.adminEdited) add(box, h('p', { class: 'hint', style: 'margin-top: 12px' }, 'Esta avaliação foi ajustada pelo admin.'));
